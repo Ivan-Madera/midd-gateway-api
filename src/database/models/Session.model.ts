@@ -13,10 +13,12 @@ interface SessionAttributes {
 export interface SessionCreationAttributes extends Optional<
   SessionAttributes,
   'id' | 'revoked_at' | 'created_at' | 'updated_at'
-> { }
+> {}
 
 export interface SessionInstance
-  extends Model<SessionAttributes, SessionCreationAttributes>, SessionAttributes { }
+  extends
+    Model<SessionAttributes, SessionCreationAttributes>,
+    SessionAttributes {}
 
 const Session = sequelize.define<SessionInstance>(
   'sessions',

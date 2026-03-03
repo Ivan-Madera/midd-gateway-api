@@ -30,8 +30,6 @@ export const issueToken: Handler = async (req, res) => {
       }
     })
 
-    console.log(client);
-
     if (!client || !client.is_active) {
       status = Codes.unauthorized
       throw new ErrorException(

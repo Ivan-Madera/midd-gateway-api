@@ -1,11 +1,8 @@
 import { Router } from 'express'
+import { issueToken, registerClient } from '../controllers/oauth.controller'
 import {
-    issueToken,
-    registerClient
-} from '../controllers/oauth.controller'
-import {
-    contentTypeValidator,
-    methodValidator
+  contentTypeValidator,
+  methodValidator
 } from '../middlewares/authentication.middleware'
 
 const router = Router()
@@ -56,11 +53,7 @@ const router = Router()
  *       500:
  *         description: Mensaje de error.
  */
-router.post(
-    '/oauth/token',
-    [methodValidator, contentTypeValidator],
-    issueToken
-)
+router.post('/oauth/token', [methodValidator, contentTypeValidator], issueToken)
 
 /**
  * @swagger
@@ -107,9 +100,9 @@ router.post(
  *         description: Mensaje de error.
  */
 router.post(
-    '/oauth/client',
-    [methodValidator, contentTypeValidator],
-    registerClient
+  '/oauth/client',
+  [methodValidator, contentTypeValidator],
+  registerClient
 )
 
 export { router as OAuth }
