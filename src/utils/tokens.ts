@@ -8,3 +8,9 @@ export const createAccessToken = (payload: any) => {
     issuer: 'authorization-gateway'
   })
 }
+
+export async function verifyToken(token: string) {
+  return jwt.verify(token, env.SECRET_KEY, {
+    issuer: 'authorization-gateway',
+  })
+}

@@ -8,7 +8,7 @@ import Client from '../database/models/Client.model'
 import { ErrorException } from '../utils/Exceptions'
 import argon2 from 'argon2'
 import Session from '../database/models/Session.model'
-import { createAccessToken } from '../utils/tokens'
+import { createAccessToken, verifyToken as verifyJwt } from '../utils/tokens'
 import { v4 as uuidv4 } from 'uuid'
 
 export const issueToken: Handler = async (req, res) => {
@@ -116,6 +116,61 @@ export const registerClient: Handler = async (req, res) => {
       )
     )
   } catch (error) {
+    return res.status(status).json(JsonApiResponseError(error, url))
+  }
+}
+
+export const verifyToken: Handler = async (req, res) => {
+  const url = req.originalUrl
+  let status = Codes.errorServer
+
+  try {
+    const {
+      body: {
+        data: { attributes }
+      }
+    } = req
+
+    const { token } = attributes
+
+    if (!token) {
+      status = Codes.badRequest
+      throw new ErrorException(
+        {
+          code: 'OAUTH-002',
+          suggestions: 'Check the token in the request payload.',
+          title: 'Token missing.'
+        },
+        status,
+        'Token is required'
+      )
+    }
+
+    await verifyJwt(token).catch((e: any) => {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-003',
+          suggestions: 'Renew the token utilizing the oauth/token endpoint.',
+          title: 'Token verification failed.'
+        },
+        status,
+        e.message || 'The token is invalid or has expired.'
+      )
+    })
+
+    status = Codes.success
+    return res.status(status).json(
+      JsonApiResponseData(
+        'verification',
+        {
+          valid: true
+        },
+        url
+      )
+    )
+  } catch (error) {
+    status = Codes.unauthorized
     return res.status(status).json(JsonApiResponseError(error, url))
   }
 }

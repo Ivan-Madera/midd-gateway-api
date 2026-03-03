@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { issueToken, registerClient } from '../controllers/oauth.controller'
+import { issueToken, registerClient, verifyToken } from '../controllers/oauth.controller'
 import {
   contentTypeValidator,
   methodValidator
@@ -103,6 +103,55 @@ router.post(
   '/oauth/client',
   [methodValidator, contentTypeValidator],
   registerClient
+)
+
+/**
+ * @swagger
+ * /api/v1/oauth/verify:
+ *   post:
+ *     tags: ["[V1] OAuth"]
+ *     summary: Verify access token
+ *     description: Verify an existing OAuth access token.
+ *     requestBody:
+ *       content:
+ *         application/vnd.api+json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     default: oauth
+ *                   attributes:
+ *                     type: object
+ *                     properties:
+ *                       token:
+ *                         type: string
+ *             example:
+ *               data:
+ *                 type: oauth
+ *                 attributes:
+ *                   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+ *     responses:
+ *       200:
+ *         description: Request exitoso.
+ *       400:
+ *          description: Ocurrio un error durante el proceso.
+ *       401:
+ *          description: Token no valido o expirado.
+ *       415:
+ *         description: Tipo de medio no soportado.
+ *       422:
+ *         description: Contenido no procesable.
+ *       500:
+ *         description: Mensaje de error.
+ */
+router.post(
+  '/oauth/verify',
+  [methodValidator, contentTypeValidator],
+  verifyToken
 )
 
 export { router as OAuth }
