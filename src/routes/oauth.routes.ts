@@ -1,5 +1,11 @@
 import { Router } from 'express'
-import { createToken, registerClient, verifyToken } from '../controllers/oauth.controller'
+import {
+  createToken,
+  registerClient,
+  verifyToken,
+  revokeAllSessions,
+  revokeSession
+} from '../controllers/oauth.controller'
 import {
   contentTypeValidator,
   methodValidator
@@ -152,6 +158,103 @@ router.post(
   '/oauth/verify',
   [methodValidator, contentTypeValidator],
   verifyToken
+)
+
+/**
+ * @swagger
+ * /api/v1/oauth/revoke-all:
+ *   post:
+ *     tags: ["[V1] OAuth"]
+ *     summary: Revoke all sessions for a client
+ *     description: Revoke all active sessions and their associated tokens for a specific client.
+ *     requestBody:
+ *       content:
+ *         application/vnd.api+json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     default: oauth
+ *                   attributes:
+ *                     type: object
+ *                     properties:
+ *                       client_id:
+ *                         type: string
+ *                       client_secret:
+ *                         type: string
+ *             example:
+ *               data:
+ *                 type: oauth
+ *                 attributes:
+ *                   client_id: "78b02e73-aa49-410a-b50a-e374d9f94218"
+ *                   client_secret: "your-super-secret-string"
+ *     responses:
+ *       200:
+ *         description: All sessions revoked successfully.
+ *       401:
+ *          description: Client unauthorized.
+ *       500:
+ *         description: Server error.
+ */
+router.post(
+  '/oauth/revoke-all',
+  [methodValidator, contentTypeValidator],
+  revokeAllSessions
+)
+
+/**
+ * @swagger
+ * /api/v1/oauth/revoke-session:
+ *   post:
+ *     tags: ["[V1] OAuth"]
+ *     summary: Revoke a specific session
+ *     description: Revoke a specific session and its associated token for a client.
+ *     requestBody:
+ *       content:
+ *         application/vnd.api+json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     default: oauth
+ *                   attributes:
+ *                     type: object
+ *                     properties:
+ *                       client_id:
+ *                         type: string
+ *                       client_secret:
+ *                         type: string
+ *                       token:
+ *                         type: string
+ *             example:
+ *               data:
+ *                 type: oauth
+ *                 attributes:
+ *                   client_id: "78b02e73-aa49-410a-b50a-e374d9f94218"
+ *                   client_secret: "your-super-secret-string"
+ *                   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+ *     responses:
+ *       200:
+ *         description: Session revoked successfully.
+ *       404:
+ *          description: Session not found.
+ *       401:
+ *          description: Client unauthorized.
+ *       500:
+ *         description: Server error.
+ */
+router.post(
+  '/oauth/revoke-session',
+  [methodValidator, contentTypeValidator],
+  revokeSession
 )
 
 export { router as OAuth }

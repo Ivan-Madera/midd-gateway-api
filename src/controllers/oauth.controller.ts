@@ -226,3 +226,188 @@ export const verifyToken: Handler = async (req, res) => {
     return res.status(status).json(JsonApiResponseError(error, url))
   }
 }
+
+export const revokeAllSessions: Handler = async (req, res) => {
+  const url = req.originalUrl
+  let status = Codes.errorServer
+
+  try {
+    const {
+      body: {
+        data: { attributes }
+      }
+    } = req
+
+    const { client_id, client_secret } = attributes
+
+    const client = await Client.findOne({
+      where: {
+        client_id: client_id,
+        is_active: true
+      }
+    })
+
+    if (!client) {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-001',
+          suggestions: 'Check the client credentials in the request.',
+          title: 'Client unauthorized.'
+        },
+        status,
+        'Client not found or inactive'
+      )
+    }
+
+    const ok = await argon2.verify(client.secret_hash, client_secret)
+    if (!ok) {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-001',
+          suggestions: 'Check the client credentials in the request.',
+          title: 'Client unauthorized.'
+        },
+        status,
+        "Client can't be authenticated"
+      )
+    }
+
+    await Session.update(
+      { revoked_at: new Date() },
+      {
+        where: {
+          client_id: client.id,
+          revoked_at: null
+        }
+      }
+    )
+
+    status = Codes.success
+    return res.status(status).json(
+      JsonApiResponseData(
+        'revocation',
+        {
+          revoked: true,
+          message: 'All sessions for the client have been revoked.'
+        },
+        url
+      )
+    )
+  } catch (error) {
+    return res.status(status).json(JsonApiResponseError(error, url))
+  }
+}
+
+export const revokeSession: Handler = async (req, res) => {
+  const url = req.originalUrl
+  let status = Codes.errorServer
+
+  try {
+    const {
+      body: {
+        data: { attributes }
+      }
+    } = req
+
+    const { client_id, client_secret, token } = attributes
+
+    if (!token) {
+      status = Codes.badRequest
+      throw new ErrorException(
+        {
+          code: 'OAUTH-002',
+          suggestions: 'Check the token in the request payload.',
+          title: 'Token missing.'
+        },
+        status,
+        'Token is required'
+      )
+    }
+
+    const client = await Client.findOne({
+      where: {
+        client_id: client_id,
+        is_active: true
+      }
+    })
+
+    if (!client) {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-001',
+          suggestions: 'Check the client credentials in the request.',
+          title: 'Client unauthorized.'
+        },
+        status,
+        'Client not found or inactive'
+      )
+    }
+
+    const ok = await argon2.verify(client.secret_hash, client_secret)
+    if (!ok) {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-001',
+          suggestions: 'Check the client credentials in the request.',
+          title: 'Client unauthorized.'
+        },
+        status,
+        "Client can't be authenticated"
+      )
+    }
+
+    const decoded = await verifyJwt(token).catch((e: any) => {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-003',
+          suggestions: 'The token might be malformed or invalid.',
+          title: 'Token verification failed.'
+        },
+        status,
+        e.message || 'The token is invalid.'
+      )
+    }) as JwtPayload
+
+    const session = await Session.findOne({
+      where: {
+        id: decoded.sid,
+        client_id: client.id
+      }
+    })
+
+    if (!session) {
+      status = Codes.badRequest
+      throw new ErrorException(
+        {
+          code: 'OAUTH-006',
+          suggestions: 'Ensure the token belongs to this client.',
+          title: 'Session not found.'
+        },
+        status,
+        'The session associated with this token does not exist or does not belong to this client.'
+      )
+    }
+
+    session.revoked_at = new Date()
+    await session.save()
+
+    status = Codes.success
+    return res.status(status).json(
+      JsonApiResponseData(
+        'revocation',
+        {
+          revoked: true,
+          message: 'The session associated with the token has been revoked.'
+        },
+        url
+      )
+    )
+  } catch (error) {
+    return res.status(status).json(JsonApiResponseError(error, url))
+  }
+}
