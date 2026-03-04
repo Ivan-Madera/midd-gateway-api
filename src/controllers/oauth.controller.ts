@@ -12,7 +12,7 @@ import { createAccessToken, verifyToken as verifyJwt } from '../utils/tokens'
 import { v4 as uuidv4 } from 'uuid'
 import { JwtPayload } from '../entities/jwt.entities'
 
-export const issueToken: Handler = async (req, res) => {
+export const createToken: Handler = async (req, res) => {
   const url = req.originalUrl
   let status = Codes.errorServer
 
@@ -182,6 +182,19 @@ export const verifyToken: Handler = async (req, res) => {
     })
 
     if (!session || session.revoked_at !== null) {
+      // if (session && session.revoked_at !== null) {
+      //   // Al detectar el uso de un token ya revocado, se revocan todos los tokens activos del mismo cliente por seguridad.
+      //   await Session.update(
+      //     { revoked_at: new Date() },
+      //     {
+      //       where: {
+      //         client_id: session.client_id,
+      //         revoked_at: null
+      //       }
+      //     }
+      //   )
+      // }
+
       status = Codes.unauthorized
       throw new ErrorException(
         {

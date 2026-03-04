@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { issueToken, registerClient, verifyToken } from '../controllers/oauth.controller'
+import { createToken, registerClient, verifyToken } from '../controllers/oauth.controller'
 import {
   contentTypeValidator,
   methodValidator
@@ -53,7 +53,7 @@ const router = Router()
  *       500:
  *         description: Mensaje de error.
  */
-router.post('/oauth/token', [methodValidator, contentTypeValidator], issueToken)
+router.post('/oauth/token', [methodValidator, contentTypeValidator], createToken)
 
 /**
  * @swagger
