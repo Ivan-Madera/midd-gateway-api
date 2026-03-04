@@ -194,6 +194,10 @@ export const verifyToken: Handler = async (req, res) => {
       )
     }
 
+    // Invalida la sesión para que el token funcione como single-use
+    session.revoked_at = new Date()
+    await session.save()
+
     status = Codes.success
     return res.status(status).json(
       JsonApiResponseData(
