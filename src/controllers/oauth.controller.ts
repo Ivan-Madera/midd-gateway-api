@@ -10,6 +10,7 @@ import argon2 from 'argon2'
 import Session from '../database/models/Session.model'
 import { createAccessToken, verifyToken as verifyJwt } from '../utils/tokens'
 import { v4 as uuidv4 } from 'uuid'
+import { JwtPayload } from '../entities/jwt.entities'
 
 export const issueToken: Handler = async (req, res) => {
   const url = req.originalUrl
@@ -26,11 +27,12 @@ export const issueToken: Handler = async (req, res) => {
 
     const client = await Client.findOne({
       where: {
-        client_id: client_id
+        client_id: client_id,
+        is_active: true
       }
     })
 
-    if (!client || !client.is_active) {
+    if (!client) {
       status = Codes.unauthorized
       throw new ErrorException(
         {
@@ -89,6 +91,20 @@ export const registerClient: Handler = async (req, res) => {
 
     const { name, client_secret } = attributes
 
+    const existingClient = await Client.findOne({ where: { name, is_active: true } })
+    if (existingClient) {
+      status = Codes.badRequest
+      throw new ErrorException(
+        {
+          code: 'OAUTH-004',
+          suggestions: 'Choose a different name for the client component.',
+          title: 'Client name already in use.'
+        },
+        status,
+        'A client with the specified name already exists.'
+      )
+    }
+
     const secretHash = await argon2.hash(client_secret, {
       type: argon2.argon2id,
       memoryCost: 19456,
@@ -146,7 +162,7 @@ export const verifyToken: Handler = async (req, res) => {
       )
     }
 
-    await verifyJwt(token).catch((e: any) => {
+    const decoded = await verifyJwt(token).catch((e: any) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
@@ -157,7 +173,26 @@ export const verifyToken: Handler = async (req, res) => {
         status,
         e.message || 'The token is invalid or has expired.'
       )
+    }) as JwtPayload
+
+    const session = await Session.findOne({
+      where: {
+        id: decoded.sid
+      }
     })
+
+    if (!session || session.revoked_at !== null) {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-005',
+          suggestions: 'Authenticate again to get a new token.',
+          title: 'Session revoked.'
+        },
+        status,
+        'The session associated with this token has been revoked or no longer exists.'
+      )
+    }
 
     status = Codes.success
     return res.status(status).json(
