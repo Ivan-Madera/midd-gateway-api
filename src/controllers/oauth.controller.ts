@@ -593,3 +593,63 @@ export const revokeOldSessions: Handler = async (req, res) => {
     return res.status(status).json(JsonApiResponseError(error, url))
   }
 }
+
+export const generatePassword: Handler = async (req, res) => {
+  const url = req.originalUrl
+  const status = Codes.success
+
+  try {
+    const defaultLength = 16
+    const charsetLowercase = 'abcdefghijklmnopqrstuvwxyz'
+    const charsetUppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    const charsetNumbers = '0123456789'
+    const charsetSymbols = '!@#$%^&*()-_=+[]{}|;:,.<>?'
+
+    const allChars =
+      charsetLowercase + charsetUppercase + charsetNumbers + charsetSymbols
+
+    let password = ''
+    let hasLowercase = false
+    let hasUppercase = false
+    let hasNumbers = false
+    let hasSymbols = false
+
+    // We keep generating until we hit a password that definitively satisfies all strict criteria
+    while (
+      !(hasLowercase && hasUppercase && hasNumbers && hasSymbols)
+    ) {
+      password = ''
+      hasLowercase = false
+      hasUppercase = false
+      hasNumbers = false
+      hasSymbols = false
+
+      const { randomBytes } = await import('crypto')
+      const buffer = randomBytes(defaultLength)
+
+      for (let i = 0; i < defaultLength; i++) {
+        const charIndex = buffer[i] % allChars.length
+        const char = allChars[charIndex]
+
+        if (charsetLowercase.includes(char)) hasLowercase = true
+        if (charsetUppercase.includes(char)) hasUppercase = true
+        if (charsetNumbers.includes(char)) hasNumbers = true
+        if (charsetSymbols.includes(char)) hasSymbols = true
+
+        password += char
+      }
+    }
+
+    return res.status(status).json(
+      JsonApiResponseData(
+        'password',
+        {
+          password
+        },
+        url
+      )
+    )
+  } catch (error) {
+    return res.status(Codes.errorServer).json(JsonApiResponseError(error, url))
+  }
+}

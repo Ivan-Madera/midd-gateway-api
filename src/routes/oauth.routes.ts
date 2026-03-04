@@ -6,7 +6,8 @@ import {
   revokeAllSessions,
   revokeSession,
   introspect,
-  revokeOldSessions
+  revokeOldSessions,
+  generatePassword
 } from '../controllers/oauth.controller'
 import {
   contentTypeValidator,
@@ -353,6 +354,31 @@ router.post(
   '/oauth/revoke-old',
   [methodValidator, contentTypeValidator],
   revokeOldSessions
+)
+
+
+/**
+ * @swagger
+ * /api/v1/oauth/util/password-generator:
+ *   post:
+ *     tags: ["[V1] OAuth Util"]
+ *     summary: Generate a robust password
+ *     description: Returns a 16-character cryptographically secure password including uppercase, lowercase, numbers, and symbols. Requires an empty POST payload or any JSON API compatible payload.
+ *     requestBody:
+ *       content:
+ *         application/vnd.api+json:
+ *     responses:
+ *       200:
+ *         description: Introspection result returned.
+ *       401:
+ *          description: Client unauthorized.
+ *       500:
+ *         description: Server error.
+ */
+router.post(
+  '/oauth/util/password-generator',
+  [authLimiter, methodValidator, contentTypeValidator],
+  generatePassword
 )
 
 export { router as OAuth }
