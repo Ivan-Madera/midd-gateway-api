@@ -359,9 +359,9 @@ router.post(
 
 /**
  * @swagger
- * /api/v1/oauth/util/password-generator:
+ * /api/v1/oauth/password-generator:
  *   post:
- *     tags: ["[V1] OAuth Util"]
+ *     tags: ["[V1] OAuth"]
  *     summary: Generate a robust password
  *     description: Returns a 16-character cryptographically secure password including uppercase, lowercase, numbers, and symbols. Requires an empty POST payload or any JSON API compatible payload.
  *     requestBody:
@@ -369,14 +369,14 @@ router.post(
  *         application/vnd.api+json:
  *     responses:
  *       200:
- *         description: Introspection result returned.
+ *         description: Password generated successfully.
  *       401:
  *          description: Client unauthorized.
  *       500:
  *         description: Server error.
  */
 router.post(
-  '/oauth/util/password-generator',
+  '/oauth/password-generator',
   [authLimiter, methodValidator, contentTypeValidator],
   generatePassword
 )
