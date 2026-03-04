@@ -7,6 +7,7 @@ import { sequelize } from '../database/config'
 import { LogInfo } from '../utils/logger'
 import { baseRoute, headerNoCache } from '../middlewares/shared.middleware'
 import { helmetContentSecurityPolicy, helmetTransportSecurity } from './helmet'
+import { generalLimiter } from './rateLimit'
 import { custom, options } from './swagger'
 import env from './callEnv'
 import { OAuth } from '../routes/oauth.routes'
@@ -20,7 +21,8 @@ class Server {
     this.initialize()
   }
 
-  private initialize(): void {
+  private async initialize(): Promise<void> {
+    this.initializeDB()
     this.configureSecurity()
     this.configureMiddlewares()
     this.configureSwagger()
@@ -28,6 +30,7 @@ class Server {
   }
 
   private configureSecurity(): void {
+    this.app.disable('x-powered-by')
     this.app.use(
       helmet({
         contentSecurityPolicy: helmetContentSecurityPolicy,
@@ -39,6 +42,7 @@ class Server {
 
   private configureMiddlewares(): void {
     this.app.use(cors())
+    this.app.use(generalLimiter)
     this.app.use(headerNoCache)
     this.app.use(express.json({ type: 'application/vnd.api+json' }))
     this.app.use(express.urlencoded({ extended: true }))
@@ -77,6 +81,14 @@ class Server {
 
   public async close(): Promise<void> {
     await sequelize.close()
+  }
+
+  public async initializeDB(): Promise<void> {
+    try {
+      await sequelize.authenticate()
+    } catch (error: any) {
+      console.error(`Error initializing DB from Server context: ${error.message as string}`)
+    }
   }
 }
 

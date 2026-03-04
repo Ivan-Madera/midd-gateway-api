@@ -4,12 +4,15 @@ import {
   registerClient,
   verifyToken,
   revokeAllSessions,
-  revokeSession
+  revokeSession,
+  introspect,
+  revokeOldSessions
 } from '../controllers/oauth.controller'
 import {
   contentTypeValidator,
   methodValidator
 } from '../middlewares/authentication.middleware'
+import { authLimiter } from '../config/rateLimit'
 
 const router = Router()
 
@@ -59,7 +62,7 @@ const router = Router()
  *       500:
  *         description: Mensaje de error.
  */
-router.post('/oauth/token', [methodValidator, contentTypeValidator], createToken)
+router.post('/oauth/token', [authLimiter, methodValidator, contentTypeValidator], createToken)
 
 /**
  * @swagger
@@ -255,6 +258,101 @@ router.post(
   '/oauth/revoke-session',
   [methodValidator, contentTypeValidator],
   revokeSession
+)
+
+/**
+ * @swagger
+ * /api/v1/oauth/introspect:
+ *   post:
+ *     tags: ["[V1] OAuth"]
+ *     summary: Introspect access token
+ *     description: Returns metadata about the token, including whether it is active or not (RFC 7662).
+ *     requestBody:
+ *       content:
+ *         application/vnd.api+json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     default: oauth
+ *                   attributes:
+ *                     type: object
+ *                     properties:
+ *                       client_id:
+ *                         type: string
+ *                       client_secret:
+ *                         type: string
+ *                       token:
+ *                         type: string
+ *             example:
+ *               data:
+ *                 type: oauth
+ *                 attributes:
+ *                   client_id: "78b02e73-aa49-410a-b50a-e374d9f94218"
+ *                   client_secret: "your-super-secret-string"
+ *                   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+ *     responses:
+ *       200:
+ *         description: Introspection result returned.
+ *       401:
+ *          description: Client unauthorized.
+ *       500:
+ *         description: Server error.
+ */
+router.post(
+  '/oauth/introspect',
+  [methodValidator, contentTypeValidator],
+  introspect
+)
+
+/**
+ * @swagger
+ * /api/v1/oauth/revoke-old:
+ *   post:
+ *     tags: ["[V1] OAuth"]
+ *     summary: Revoke old sessions
+ *     description: Revoke all sessions for a client created more than 24 hours ago.
+ *     requestBody:
+ *       content:
+ *         application/vnd.api+json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   type:
+ *                     type: string
+ *                     default: oauth
+ *                   attributes:
+ *                     type: object
+ *                     properties:
+ *                       client_id:
+ *                         type: string
+ *                       client_secret:
+ *                         type: string
+ *             example:
+ *               data:
+ *                 type: oauth
+ *                 attributes:
+ *                   client_id: "78b02e73-aa49-410a-b50a-e374d9f94218"
+ *                   client_secret: "your-super-secret-string"
+ *     responses:
+ *       200:
+ *         description: Old sessions revoked successfully.
+ *       401:
+ *          description: Client unauthorized.
+ *       500:
+ *         description: Server error.
+ */
+router.post(
+  '/oauth/revoke-old',
+  [methodValidator, contentTypeValidator],
+  revokeOldSessions
 )
 
 export { router as OAuth }

@@ -7,6 +7,11 @@ export const helmetTransportSecurity = {
 export const helmetContentSecurityPolicy = {
   directives: {
     defaultSrc: ["'self'"],
-    frameAncestors: ["'none'"]
+    scriptSrc: ["'self'"],
+    styleSrc: ["'self'"],
+    imgSrc: ["'self'", 'data:'],
+    objectSrc: ["'none'"],
+    frameAncestors: ["'none'"],
+    upgradeInsecureRequests: []
   }
 }

@@ -1,4 +1,5 @@
 import { Handler } from 'express'
+import { Op } from 'sequelize'
 import { Codes } from '../utils/codeStatus'
 import {
   JsonApiResponseData,
@@ -11,6 +12,7 @@ import Session from '../database/models/Session.model'
 import { createAccessToken, verifyToken as verifyJwt } from '../utils/tokens'
 import { v4 as uuidv4 } from 'uuid'
 import { JwtPayload } from '../entities/jwt.entities'
+import { LogWarn } from '../utils/logger'
 
 export const createToken: Handler = async (req, res) => {
   const url = req.originalUrl
@@ -61,7 +63,7 @@ export const createToken: Handler = async (req, res) => {
 
     const session = await Session.create({
       client_id: client.id,
-      expires_at: new Date(Date.now() + 10 * 60 * 1000)
+      expires_at: new Date(Date.now() + 5 * 60 * 1000)
     })
 
     const accessToken = createAccessToken({
@@ -403,6 +405,186 @@ export const revokeSession: Handler = async (req, res) => {
         {
           revoked: true,
           message: 'The session associated with the token has been revoked.'
+        },
+        url
+      )
+    )
+  } catch (error) {
+    return res.status(status).json(JsonApiResponseError(error, url))
+  }
+}
+
+export const introspect: Handler = async (req, res) => {
+  const url = req.originalUrl
+  let status = Codes.errorServer
+
+  try {
+    const {
+      body: {
+        data: { attributes }
+      }
+    } = req
+
+    const { client_id, client_secret, token } = attributes
+
+    if (!token) {
+      status = Codes.badRequest
+      throw new ErrorException(
+        {
+          code: 'OAUTH-002',
+          suggestions: 'Check the token in the request payload.',
+          title: 'Token missing.'
+        },
+        status,
+        'Token is required'
+      )
+    }
+
+    const client = await Client.findOne({
+      where: {
+        client_id: client_id,
+        is_active: true
+      }
+    })
+
+    if (!client) {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-001',
+          suggestions: 'Check the client credentials in the request.',
+          title: 'Client unauthorized.'
+        },
+        status,
+        'Client not found or inactive'
+      )
+    }
+
+    const ok = await argon2.verify(client.secret_hash, client_secret)
+    if (!ok) {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-001',
+          suggestions: 'Check the client credentials in the request.',
+          title: 'Client unauthorized.'
+        },
+        status,
+        "Client can't be authenticated"
+      )
+    }
+
+    let active = false
+    let introspectionData: any = { active }
+
+    try {
+      const decoded = await verifyJwt(token) as any
+      const session = await Session.findOne({
+        where: {
+          id: decoded.sid,
+          client_id: client.id
+        }
+      })
+
+      if (session && session.revoked_at === null) {
+        active = true
+        introspectionData = {
+          active,
+          client_id: client.client_id,
+          sub: client.name,
+          sid: session.id,
+          exp: Math.floor(session.expires_at.getTime() / 1000),
+          iat: Math.floor(session.created_at.getTime() / 1000)
+        }
+      }
+    } catch (e) {
+      active = false
+      LogWarn('OAuth', 'V1', e)
+    }
+
+    status = Codes.success
+    return res.status(status).json(
+      JsonApiResponseData(
+        'introspection',
+        introspectionData,
+        url
+      )
+    )
+  } catch (error) {
+    return res.status(status).json(JsonApiResponseError(error, url))
+  }
+}
+
+export const revokeOldSessions: Handler = async (req, res) => {
+  const url = req.originalUrl
+  let status = Codes.errorServer
+
+  try {
+    const {
+      body: {
+        data: { attributes }
+      }
+    } = req
+
+    const { client_id, client_secret } = attributes
+
+    const client = await Client.findOne({
+      where: {
+        client_id: client_id,
+        is_active: true
+      }
+    })
+
+    if (!client) {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-001',
+          suggestions: 'Check the client credentials in the request.',
+          title: 'Client unauthorized.'
+        },
+        status,
+        'Client not found or inactive'
+      )
+    }
+
+    const ok = await argon2.verify(client.secret_hash, client_secret)
+    if (!ok) {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-001',
+          suggestions: 'Check the client credentials in the request.',
+          title: 'Client unauthorized.'
+        },
+        status,
+        "Client can't be authenticated"
+      )
+    }
+
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+    const [affectedCount] = await Session.update(
+      { revoked_at: new Date() },
+      {
+        where: {
+          client_id: client.id,
+          revoked_at: null,
+          created_at: {
+            [Op.lt]: twentyFourHoursAgo
+          }
+        }
+      }
+    )
+
+    status = Codes.success
+    return res.status(status).json(
+      JsonApiResponseData(
+        'revocation',
+        {
+          revoked: true,
+          count: affectedCount,
+          message: `Revoked ${affectedCount} sessions older than 24 hours.`
         },
         url
       )
