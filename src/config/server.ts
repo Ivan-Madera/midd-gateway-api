@@ -3,7 +3,6 @@ import cors from 'cors'
 import helmet from 'helmet'
 import swaggerUI from 'swagger-ui-express'
 import swaggerJSDoc from 'swagger-jsdoc'
-import { sequelize } from '../database/config'
 import { LogInfo } from '../utils/logger'
 import { baseRoute, headerNoCache } from '../middlewares/shared.middleware'
 import { helmetContentSecurityPolicy, helmetTransportSecurity } from './helmet'
@@ -11,6 +10,7 @@ import { generalLimiter } from './rateLimit'
 import { custom, options } from './swagger'
 import env from './callEnv'
 import { OAuth } from '../routes/oauth.routes'
+import { initializeDatabase } from '../database/config'
 
 class Server {
   public app: Application
@@ -66,11 +66,7 @@ class Server {
     this.app.get('/', baseRoute)
 
     this.app.listen(env.PORT, () => {
-      const message =
-        env.ENV === 'production'
-          ? `Server running in ${env.ENV} environment`
-          : `Server listening on http://127.0.0.1:${env.PORT}/docs`
-
+      const message = `Server listening on http://127.0.0.1:${env.PORT}`
       LogInfo(message)
     })
   }
@@ -79,16 +75,8 @@ class Server {
     return this.app
   }
 
-  public async close(): Promise<void> {
-    await sequelize.close()
-  }
-
   public async initializeDB(): Promise<void> {
-    try {
-      await sequelize.authenticate()
-    } catch (error: any) {
-      console.error(`Error initializing DB from Server context: ${error.message as string}`)
-    }
+    await initializeDatabase()
   }
 }
 

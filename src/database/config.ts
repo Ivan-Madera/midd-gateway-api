@@ -16,11 +16,11 @@ LogMark(
 const rds =
   env.ENV === 'production'
     ? {
-        ssl: {
-          require: true,
-          rejectUnauthorized: false
-        }
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
       }
+    }
     : {}
 
 class Database {
@@ -64,12 +64,16 @@ class Database {
 }
 
 const db = new Database()
-db.getConection()
-  .then(() => {
-    LogInfo('Conexion exitosa')
-  })
-  .catch((error: any) => {
-    LogError(`Conexion fallida: ${error.message as string}`)
-  })
+
+export const initializeDatabase = async (): Promise<void> => {
+  db.getConection()
+    .then(() => {
+      LogInfo('Conexion exitosa')
+    })
+    .catch((error: unknown) => {
+      const msg = (error as any)?.message || 'An unknown error occurred'
+      LogError(`Conexion fallida: ${msg as string}`)
+    })
+}
 
 export const sequelize = db.getSequelize()

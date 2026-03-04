@@ -10,7 +10,7 @@ export const baseRoute = (_req: any, res: any, _next: any): void => {
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>Midd Gateway API · Ivan Madera</title>
       <style>
-        body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial; color: #e5e7eb; background: #0f172a; display: grid; place-items: center; min-height: 100vh; padding: 24px; }
+        body { margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial; color: #e5e7eb; background: #0f172a; display: flex; align-items: center; justify-content: center; }
         .card { max-width: 920px; width: 100%; background: linear-gradient(180deg, rgba(17,24,39,.9), rgba(17,24,39,.85)); border: 1px solid rgba(255,255,255,.06); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04); overflow: hidden; }
         .header { display: flex; align-items: center; gap: 14px; padding: 22px 24px; border-bottom: 1px solid rgba(255,255,255,.06); }
         .logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #22c55e, #06b6d4); display: grid; place-items: center; color: #052e16; font-weight: 800; box-shadow: 0 6px 20px rgba(34,197,94,.35); }
