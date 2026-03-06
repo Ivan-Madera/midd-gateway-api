@@ -27,6 +27,15 @@ module.exports = {
         type: Sequelize.BOOLEAN,
         defaultValue: true
       },
+      failed_attempts: {
+        type: Sequelize.INTEGER,
+        defaultValue: 0,
+        allowNull: false
+      },
+      lockout_until: {
+        type: Sequelize.DATE,
+        allowNull: true
+      },
       created_at: {
         type: Sequelize.DATE,
         defaultValue: Sequelize.fn('NOW'),

@@ -47,8 +47,29 @@ export const createToken: Handler = async (req, res) => {
       )
     }
 
+    // Check for lockout
+    if (client.lockout_until && client.lockout_until > new Date()) {
+      status = Codes.unauthorized
+      throw new ErrorException(
+        {
+          code: 'OAUTH-007',
+          suggestions: 'Wait a few minutes before trying again.',
+          title: 'Account locked.'
+        },
+        status,
+        `Too many failed attempts. Try again after ${client.lockout_until.toISOString()}`
+      )
+    }
+
     const ok = await argon2.verify(client.secret_hash, client_secret)
     if (!ok) {
+      // Increment failed attempts
+      client.failed_attempts += 1
+      if (client.failed_attempts >= 5) {
+        client.lockout_until = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes lockout
+      }
+      await client.save()
+
       status = Codes.unauthorized
       throw new ErrorException(
         {
@@ -60,6 +81,11 @@ export const createToken: Handler = async (req, res) => {
         "Client can't be authenticated"
       )
     }
+
+    // Reset failed attempts on success
+    client.failed_attempts = 0
+    client.lockout_until = null
+    await client.save()
 
     const session = await Session.create({
       client_id: client.id,
