@@ -13,6 +13,7 @@ import { createAccessToken, verifyToken as verifyJwt } from '../utils/tokens'
 import { v4 as uuidv4 } from 'uuid'
 import { JwtPayload } from '../entities/jwt.entities'
 import { LogWarn } from '../utils/logger'
+import { AuditEventType, logEvent } from '../services/audit.service'
 
 export const createToken: Handler = async (req, res) => {
   const url = req.originalUrl
@@ -67,8 +68,11 @@ export const createToken: Handler = async (req, res) => {
       client.failed_attempts += 1
       if (client.failed_attempts >= 5) {
         client.lockout_until = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes lockout
+        await logEvent(AuditEventType.CLIENT_LOCKED, client, { reason: 'Too many failed attempts' }, req)
       }
       await client.save()
+
+      await logEvent(AuditEventType.FAILED_LOGIN_ATTEMPT, client, { client_id: client_id }, req)
 
       status = Codes.unauthorized
       throw new ErrorException(
@@ -96,6 +100,8 @@ export const createToken: Handler = async (req, res) => {
       uid: client.id,
       sid: session.id
     })
+
+    await logEvent(AuditEventType.TOKEN_CREATED, client, { session_id: session.id }, req)
 
     status = Codes.success
     return res
@@ -148,6 +154,8 @@ export const registerClient: Handler = async (req, res) => {
       secret_hash: secretHash,
       is_active: true
     })
+
+    await logEvent(AuditEventType.CLIENT_REGISTERED, newClient, { name }, req)
 
     status = Codes.success
     return res.status(status).json(
@@ -210,18 +218,24 @@ export const verifyToken: Handler = async (req, res) => {
     })
 
     if (!session || session.revoked_at !== null) {
-      // if (session && session.revoked_at !== null) {
-      //   // Al detectar el uso de un token ya revocado, se revocan todos los tokens activos del mismo cliente por seguridad.
-      //   await Session.update(
-      //     { revoked_at: new Date() },
-      //     {
-      //       where: {
-      //         client_id: session.client_id,
-      //         revoked_at: null
-      //       }
-      //     }
-      //   )
-      // }
+      if (session && session.revoked_at !== null) {
+        // Al detectar el uso de un token ya revocado, se revocan todos los tokens activos del mismo cliente por seguridad.
+        await Session.update(
+          { revoked_at: new Date() },
+          {
+            where: {
+              client_id: session.client_id,
+              revoked_at: null
+            }
+          }
+        )
+
+        const client = await Client.findByPk(session.client_id)
+        await logEvent(AuditEventType.TOKEN_REUSE_DETECTION, client, {
+          session_id: session.id,
+          msg: 'Detectado uso de token ya revocado. Se han revocado todas las sesiones del cliente.'
+        }, req)
+      }
 
       status = Codes.unauthorized
       throw new ErrorException(
@@ -311,6 +325,8 @@ export const revokeAllSessions: Handler = async (req, res) => {
         }
       }
     )
+
+    await logEvent(AuditEventType.TOKEN_REVOKED, client, { type: 'all' }, req)
 
     status = Codes.success
     return res.status(status).json(
@@ -423,6 +439,8 @@ export const revokeSession: Handler = async (req, res) => {
 
     session.revoked_at = new Date()
     await session.save()
+
+    await logEvent(AuditEventType.TOKEN_REVOKED, client, { session_id: session.id, type: 'single' }, req)
 
     status = Codes.success
     return res.status(status).json(
@@ -602,6 +620,8 @@ export const revokeOldSessions: Handler = async (req, res) => {
         }
       }
     )
+
+    await logEvent(AuditEventType.TOKEN_REVOKED, client, { count: affectedCount, type: 'old_sessions' }, req)
 
     status = Codes.success
     return res.status(status).json(
