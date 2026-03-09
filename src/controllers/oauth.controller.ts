@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { JwtPayload } from '../entities/jwt.entities'
 import { LogWarn } from '../utils/logger'
 import { AuditEventType, logEvent } from '../services/audit.service'
+import env from '../config/callEnv'
 
 export const createToken: Handler = async (req, res) => {
   const url = req.originalUrl
@@ -39,12 +40,12 @@ export const createToken: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-001',
-          suggestions: 'Check the client credentials in the request.',
-          title: 'Client unauthorized.'
+          code: 'OAUTH-ERROR-004',
+          suggestions: 'Verifique las credenciales del cliente en la solicitud.',
+          title: 'Cliente no autorizado.'
         },
         status,
-        'Client not found or inactive'
+        'Cliente no encontrado o inactivo'
       )
     }
 
@@ -53,12 +54,12 @@ export const createToken: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-007',
-          suggestions: 'Wait a few minutes before trying again.',
-          title: 'Account locked.'
+          code: 'OAUTH-ERROR-010',
+          suggestions: 'Espere unos minutos antes de intentar nuevamente.',
+          title: 'Cuenta bloqueada.'
         },
         status,
-        `Too many failed attempts. Try again after ${client.lockout_until.toISOString()}`
+        `Demasiados intentos fallidos. Intente de nuevo después de ${client.lockout_until.toISOString()}`
       )
     }
 
@@ -68,21 +69,21 @@ export const createToken: Handler = async (req, res) => {
       client.failed_attempts += 1
       if (client.failed_attempts >= 5) {
         client.lockout_until = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes lockout
-        await logEvent(AuditEventType.CLIENT_LOCKED, client, { reason: 'Too many failed attempts' }, req)
+        await logEvent(AuditEventType.CLIENT_LOCKED, client, { msg: 'Cliente bloqueado temporalmente por seguridad tras exceder el límite de 5 intentos fallidos.' }, req)
       }
       await client.save()
 
-      await logEvent(AuditEventType.FAILED_LOGIN_ATTEMPT, client, { client_id: client_id }, req)
+      await logEvent(AuditEventType.FAILED_LOGIN_ATTEMPT, client, { msg: 'Intento de inicio de sesión fallido. Credenciales incorrectas.', client_id: client_id }, req)
 
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-001',
-          suggestions: 'Check the client credentials in the request.',
-          title: 'Client unauthorized.'
+          code: 'OAUTH-ERROR-004',
+          suggestions: 'Verifique las credenciales del cliente en la solicitud.',
+          title: 'Cliente no autorizado.'
         },
         status,
-        "Client can't be authenticated"
+        'El cliente no pudo ser autenticado'
       )
     }
 
@@ -93,7 +94,7 @@ export const createToken: Handler = async (req, res) => {
 
     const session = await Session.create({
       client_id: client.id,
-      expires_at: new Date(Date.now() + 5 * 60 * 1000)
+      expires_at: new Date(Date.now() + env.TOKEN_LIFETIME * 60 * 1000)
     })
 
     const accessToken = createAccessToken({
@@ -101,13 +102,12 @@ export const createToken: Handler = async (req, res) => {
       sid: session.id
     })
 
-    await logEvent(AuditEventType.TOKEN_CREATED, client, { session_id: session.id }, req)
+    await logEvent(AuditEventType.TOKEN_CREATED, client, { msg: 'Token de acceso generado exitosamente. Inicio de sesión registrado.', session_id: session.id }, req)
 
     status = Codes.success
-    return res
-      .status(status)
-      .json(JsonApiResponseData('session', { accessToken }, url))
+    return res.status(status).json(JsonApiResponseData('session', { accessToken }, url))
   } catch (error) {
+    LogWarn('createToken', 'V1', error)
     return res.status(status).json(JsonApiResponseError(error, url))
   }
 }
@@ -130,12 +130,12 @@ export const registerClient: Handler = async (req, res) => {
       status = Codes.badRequest
       throw new ErrorException(
         {
-          code: 'OAUTH-004',
-          suggestions: 'Choose a different name for the client component.',
-          title: 'Client name already in use.'
+          code: 'OAUTH-ERROR-007',
+          suggestions: 'Elija un nombre diferente para el componente cliente.',
+          title: 'Nombre de cliente ya en uso.'
         },
         status,
-        'A client with the specified name already exists.'
+        'Ya existe un cliente con el nombre especificado.'
       )
     }
 
@@ -155,7 +155,7 @@ export const registerClient: Handler = async (req, res) => {
       is_active: true
     })
 
-    await logEvent(AuditEventType.CLIENT_REGISTERED, newClient, { name }, req)
+    await logEvent(AuditEventType.CLIENT_REGISTERED, newClient, { msg: 'Registro de nuevo cliente completado satisfactoriamente.', name }, req)
 
     status = Codes.success
     return res.status(status).json(
@@ -168,6 +168,7 @@ export const registerClient: Handler = async (req, res) => {
       )
     )
   } catch (error) {
+    LogWarn('registerClient', 'V1', error)
     return res.status(status).json(JsonApiResponseError(error, url))
   }
 }
@@ -189,12 +190,12 @@ export const verifyToken: Handler = async (req, res) => {
       status = Codes.badRequest
       throw new ErrorException(
         {
-          code: 'OAUTH-002',
-          suggestions: 'Check the token in the request payload.',
-          title: 'Token missing.'
+          code: 'OAUTH-ERROR-005',
+          suggestions: 'Verifique el token en los atributos de la solicitud.',
+          title: 'Token faltante.'
         },
         status,
-        'Token is required'
+        'El token es obligatorio'
       )
     }
 
@@ -202,12 +203,12 @@ export const verifyToken: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-003',
-          suggestions: 'Renew the token utilizing the oauth/token endpoint.',
-          title: 'Token verification failed.'
+          code: 'OAUTH-ERROR-006',
+          suggestions: 'Renueve el token utilizando el endpoint oauth/token.',
+          title: 'Fallo en la verificación del token.'
         },
         status,
-        e.message || 'The token is invalid or has expired.'
+        e.message || 'El token es inválido o ha expirado.'
       )
     }) as JwtPayload
 
@@ -233,19 +234,19 @@ export const verifyToken: Handler = async (req, res) => {
         const client = await Client.findByPk(session.client_id)
         await logEvent(AuditEventType.TOKEN_REUSE_DETECTION, client, {
           session_id: session.id,
-          msg: 'Detectado uso de token ya revocado. Se han revocado todas las sesiones del cliente.'
+          msg: 'ALERTA DE SEGURIDAD: Reutilización de token detectada. Todas las sesiones del cliente han sido revocadas preventivamente.'
         }, req)
       }
 
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-005',
-          suggestions: 'Authenticate again to get a new token.',
-          title: 'Session revoked.'
+          code: 'OAUTH-ERROR-008',
+          suggestions: 'Autentíquese de nuevo para obtener un nuevo token.',
+          title: 'Sesión revocada.'
         },
         status,
-        'The session associated with this token has been revoked or no longer exists.'
+        'La sesión asociada con este token ha sido revocada o ya no existe.'
       )
     }
 
@@ -264,6 +265,7 @@ export const verifyToken: Handler = async (req, res) => {
       )
     )
   } catch (error) {
+    LogWarn('verifyToken', 'V1', error)
     status = Codes.unauthorized
     return res.status(status).json(JsonApiResponseError(error, url))
   }
@@ -293,12 +295,12 @@ export const revokeAllSessions: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-001',
-          suggestions: 'Check the client credentials in the request.',
-          title: 'Client unauthorized.'
+          code: 'OAUTH-ERROR-004',
+          suggestions: 'Verifique las credenciales del cliente en la solicitud.',
+          title: 'Cliente no autorizado.'
         },
         status,
-        'Client not found or inactive'
+        'Cliente no encontrado o inactivo'
       )
     }
 
@@ -307,12 +309,12 @@ export const revokeAllSessions: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-001',
-          suggestions: 'Check the client credentials in the request.',
-          title: 'Client unauthorized.'
+          code: 'OAUTH-ERROR-004',
+          suggestions: 'Verifique las credenciales del cliente en la solicitud.',
+          title: 'Cliente no autorizado.'
         },
         status,
-        "Client can't be authenticated"
+        'El cliente no pudo ser autenticado'
       )
     }
 
@@ -326,7 +328,7 @@ export const revokeAllSessions: Handler = async (req, res) => {
       }
     )
 
-    await logEvent(AuditEventType.TOKEN_REVOKED, client, { type: 'all' }, req)
+    await logEvent(AuditEventType.TOKEN_REVOKED, client, { msg: 'Cierre masivo de sesiones: Todas las sesiones activas del cliente han sido invalidadas.', type: 'all' }, req)
 
     status = Codes.success
     return res.status(status).json(
@@ -334,12 +336,13 @@ export const revokeAllSessions: Handler = async (req, res) => {
         'revocation',
         {
           revoked: true,
-          message: 'All sessions for the client have been revoked.'
+          message: 'Se han revocado todas las sesiones del cliente.'
         },
         url
       )
     )
   } catch (error) {
+    LogWarn('revokeAllSessions', 'V1', error)
     return res.status(status).json(JsonApiResponseError(error, url))
   }
 }
@@ -361,12 +364,12 @@ export const revokeSession: Handler = async (req, res) => {
       status = Codes.badRequest
       throw new ErrorException(
         {
-          code: 'OAUTH-002',
-          suggestions: 'Check the token in the request payload.',
-          title: 'Token missing.'
+          code: 'OAUTH-ERROR-005',
+          suggestions: 'Verifique el token en los atributos de la solicitud.',
+          title: 'Token faltante.'
         },
         status,
-        'Token is required'
+        'El token es obligatorio'
       )
     }
 
@@ -381,12 +384,12 @@ export const revokeSession: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-001',
-          suggestions: 'Check the client credentials in the request.',
-          title: 'Client unauthorized.'
+          code: 'OAUTH-ERROR-004',
+          suggestions: 'Verifique las credenciales del cliente en la solicitud.',
+          title: 'Cliente no autorizado.'
         },
         status,
-        'Client not found or inactive'
+        'Cliente no encontrado o inactivo'
       )
     }
 
@@ -395,12 +398,12 @@ export const revokeSession: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-001',
-          suggestions: 'Check the client credentials in the request.',
-          title: 'Client unauthorized.'
+          code: 'OAUTH-ERROR-004',
+          suggestions: 'Verifique las credenciales del cliente en la solicitud.',
+          title: 'Cliente no autorizado.'
         },
         status,
-        "Client can't be authenticated"
+        'El cliente no pudo ser autenticado'
       )
     }
 
@@ -408,12 +411,12 @@ export const revokeSession: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-003',
-          suggestions: 'The token might be malformed or invalid.',
-          title: 'Token verification failed.'
+          code: 'OAUTH-ERROR-006',
+          suggestions: 'El token podría estar mal formado o ser inválido.',
+          title: 'Fallo en la verificación del token.'
         },
         status,
-        e.message || 'The token is invalid.'
+        e.message || 'El token es inválido.'
       )
     }) as JwtPayload
 
@@ -428,19 +431,19 @@ export const revokeSession: Handler = async (req, res) => {
       status = Codes.badRequest
       throw new ErrorException(
         {
-          code: 'OAUTH-006',
-          suggestions: 'Ensure the token belongs to this client.',
-          title: 'Session not found.'
+          code: 'OAUTH-ERROR-009',
+          suggestions: 'Asegúrese de que el token pertenece a este cliente.',
+          title: 'Sesión no encontrada.'
         },
         status,
-        'The session associated with this token does not exist or does not belong to this client.'
+        'La sesión asociada con este token no existe o no pertenece a este cliente.'
       )
     }
 
     session.revoked_at = new Date()
     await session.save()
 
-    await logEvent(AuditEventType.TOKEN_REVOKED, client, { session_id: session.id, type: 'single' }, req)
+    await logEvent(AuditEventType.TOKEN_REVOKED, client, { msg: 'Cierre de sesión individual completado.', session_id: session.id, type: 'single' }, req)
 
     status = Codes.success
     return res.status(status).json(
@@ -448,12 +451,13 @@ export const revokeSession: Handler = async (req, res) => {
         'revocation',
         {
           revoked: true,
-          message: 'The session associated with the token has been revoked.'
+          message: 'La sesión asociada con el token ha sido revocada.'
         },
         url
       )
     )
   } catch (error) {
+    LogWarn('revokeSession', 'V1', error)
     return res.status(status).json(JsonApiResponseError(error, url))
   }
 }
@@ -475,12 +479,12 @@ export const introspect: Handler = async (req, res) => {
       status = Codes.badRequest
       throw new ErrorException(
         {
-          code: 'OAUTH-002',
-          suggestions: 'Check the token in the request payload.',
-          title: 'Token missing.'
+          code: 'OAUTH-ERROR-005',
+          suggestions: 'Verifique el token en los atributos de la solicitud.',
+          title: 'Token faltante.'
         },
         status,
-        'Token is required'
+        'El token es obligatorio'
       )
     }
 
@@ -495,12 +499,12 @@ export const introspect: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-001',
-          suggestions: 'Check the client credentials in the request.',
-          title: 'Client unauthorized.'
+          code: 'OAUTH-ERROR-004',
+          suggestions: 'Verifique las credenciales del cliente en la solicitud.',
+          title: 'Cliente no autorizado.'
         },
         status,
-        'Client not found or inactive'
+        'Cliente no encontrado o inactivo'
       )
     }
 
@@ -509,12 +513,12 @@ export const introspect: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-001',
-          suggestions: 'Check the client credentials in the request.',
-          title: 'Client unauthorized.'
+          code: 'OAUTH-ERROR-004',
+          suggestions: 'Verifique las credenciales del cliente en la solicitud.',
+          title: 'Cliente no autorizado.'
         },
         status,
-        "Client can't be authenticated"
+        'El cliente no pudo ser autenticado'
       )
     }
 
@@ -555,6 +559,7 @@ export const introspect: Handler = async (req, res) => {
       )
     )
   } catch (error) {
+    LogWarn('introspect', 'V1', error)
     return res.status(status).json(JsonApiResponseError(error, url))
   }
 }
@@ -583,12 +588,12 @@ export const revokeOldSessions: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-001',
-          suggestions: 'Check the client credentials in the request.',
-          title: 'Client unauthorized.'
+          code: 'OAUTH-ERROR-004',
+          suggestions: 'Verifique las credenciales del cliente en la solicitud.',
+          title: 'Cliente no autorizado.'
         },
         status,
-        'Client not found or inactive'
+        'Cliente no encontrado o inactivo'
       )
     }
 
@@ -597,12 +602,12 @@ export const revokeOldSessions: Handler = async (req, res) => {
       status = Codes.unauthorized
       throw new ErrorException(
         {
-          code: 'OAUTH-001',
-          suggestions: 'Check the client credentials in the request.',
-          title: 'Client unauthorized.'
+          code: 'OAUTH-ERROR-004',
+          suggestions: 'Verifique las credenciales del cliente en la solicitud.',
+          title: 'Cliente no autorizado.'
         },
         status,
-        "Client can't be authenticated"
+        'El cliente no pudo ser autenticado'
       )
     }
 
@@ -621,7 +626,7 @@ export const revokeOldSessions: Handler = async (req, res) => {
       }
     )
 
-    await logEvent(AuditEventType.TOKEN_REVOKED, client, { count: affectedCount, type: 'old_sessions' }, req)
+    await logEvent(AuditEventType.TOKEN_REVOKED, client, { msg: 'Depuración automática: Cierre de sesiones con más de 24 horas de inactividad.', count: affectedCount, type: 'old_sessions' }, req)
 
     status = Codes.success
     return res.status(status).json(
@@ -630,12 +635,13 @@ export const revokeOldSessions: Handler = async (req, res) => {
         {
           revoked: true,
           count: affectedCount,
-          message: `Revoked ${affectedCount} sessions older than 24 hours.`
+          message: `Se han revocado ${affectedCount} sesiones con más de 24 horas de antigüedad.`
         },
         url
       )
     )
   } catch (error) {
+    LogWarn('revokeOldSessions', 'V1', error)
     return res.status(status).json(JsonApiResponseError(error, url))
   }
 }
@@ -696,6 +702,7 @@ export const generatePassword: Handler = async (req, res) => {
       )
     )
   } catch (error) {
+    LogWarn('generatePassword', 'V1', error)
     return res.status(Codes.errorServer).json(JsonApiResponseError(error, url))
   }
 }

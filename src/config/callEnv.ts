@@ -17,6 +17,7 @@ interface IEnv {
   DB_ACQUIRE: number
   DB_IDLE: number
   DB_EVICT: number
+  TOKEN_LIFETIME: number
 }
 
 const schema = Joi.object({
@@ -33,7 +34,8 @@ const schema = Joi.object({
   MIN_CONNECTION: Joi.number().empty('').default(0),
   DB_ACQUIRE: Joi.number().empty('').default(30000),
   DB_IDLE: Joi.number().empty('').default(5000),
-  DB_EVICT: Joi.number().empty('').default(5000)
+  DB_EVICT: Joi.number().empty('').default(5000),
+  TOKEN_LIFETIME: Joi.number().empty('').default(3600)
 })
   .unknown()
   .required()

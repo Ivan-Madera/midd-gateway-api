@@ -15,7 +15,7 @@ export const methodValidator = (req: any, res: any, next: any): void => {
       throw new ErrorException(
         validationErrors.HTTP_METHOD,
         status,
-        'The HTTP method is not allowed for this endpoint, please check the request.'
+        'El método HTTP no está permitido para este endpoint, verifique la solicitud.'
       )
     }
 
@@ -37,7 +37,7 @@ export const contentTypeValidator = (req: any, res: any, next: any): void => {
       throw new ErrorException(
         validationErrors.CONTENT_TYPE,
         status,
-        'Content-Type is not allowed for this endpoint, please check the request.'
+        'Content-Type no permitido para este endpoint, verifique la solicitud.'
       )
     }
 

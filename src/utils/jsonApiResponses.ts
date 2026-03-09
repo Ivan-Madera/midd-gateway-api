@@ -65,12 +65,12 @@ export const JsonApiResponseError = (
   error: any,
   url: string
 ): IJsonApiResponseError => {
-  const code = error.code || 'ERROR-000'
+  const code = error.code || 'OAUTH-ERROR-000'
   const status = error.status || 500
   const pointer = url
-  const suggestions = error.suggestions || 'Please try again later'
-  const title = error.title || 'Internal Server Error'
-  const message = error.message || 'An unknown error occurred'
+  const suggestions = error.suggestions || 'Por favor intente nuevamente más tarde'
+  const title = error.title || 'Error interno del servidor'
+  const message = error.message || 'Ocurrió un error desconocido'
 
   return {
     code,
@@ -102,13 +102,13 @@ export const JsonApiResponseValidator = (
   detail: string
 ): IJsonApiResponseError => {
   return {
-    code: 'ERROR-001',
+    code: 'OAUTH-ERROR-001',
     status: Codes.unprocessableContent,
     source: {
       pointer
     },
-    suggestedActions: 'Check the body of the request.',
-    title: 'Invalid request body.',
+    suggestedActions: 'Verifique el cuerpo de la solicitud.',
+    title: 'Cuerpo de solicitud inválido.',
     detail
   }
 }

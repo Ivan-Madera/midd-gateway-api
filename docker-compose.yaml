@@ -23,6 +23,7 @@ services:
       DB_ACQUIRE: ${DB_ACQUIRE}
       DB_IDLE: ${DB_IDLE}
       DB_EVICT: ${DB_EVICT}
+      TOKEN_LIFETIME: ${TOKEN_LIFETIME}
 
 networks:
   default:

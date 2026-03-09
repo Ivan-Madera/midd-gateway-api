@@ -4,7 +4,7 @@ import env from '../config/callEnv'
 export const createAccessToken = (payload: any) => {
   return jwt.sign(payload, env.SECRET_KEY, {
     algorithm: 'HS512',
-    expiresIn: '5m',
+    expiresIn: `${env.TOKEN_LIFETIME}m`,
     issuer: 'authorization-gateway'
   })
 }
