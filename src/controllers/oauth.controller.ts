@@ -10,11 +10,34 @@ import { ErrorException } from '../utils/Exceptions'
 import argon2 from 'argon2'
 import Session from '../database/models/Session.model'
 import { createAccessToken, verifyToken as verifyJwt } from '../utils/tokens'
-import { v4 as uuidv4 } from 'uuid'
 import { JwtPayload } from '../entities/jwt.entities'
 import { LogWarn } from '../utils/logger'
 import { AuditEventType, logEvent } from '../services/audit.service'
 import env from '../config/callEnv'
+import { registerClientService } from '../services/oauth.service'
+
+export const registerClient: Handler = async (req, res) => {
+  const url = req.originalUrl
+  let status = Codes.errorServer
+
+  try {
+    const {
+      body: {
+        data: { attributes }
+      }
+    } = req
+
+    const { name, client_secret } = attributes
+
+    const oauthService = await registerClientService(url, name, client_secret, req)
+
+    status = oauthService.status
+    return res.status(status).json(oauthService.response)
+  } catch (error) {
+    LogWarn('registerClient', 'V1', error)
+    return res.status(status).json(JsonApiResponseError(error, url))
+  }
+}
 
 export const createToken: Handler = async (req, res) => {
   const url = req.originalUrl
@@ -108,67 +131,6 @@ export const createToken: Handler = async (req, res) => {
     return res.status(status).json(JsonApiResponseData('session', { accessToken }, url))
   } catch (error) {
     LogWarn('createToken', 'V1', error)
-    return res.status(status).json(JsonApiResponseError(error, url))
-  }
-}
-
-export const registerClient: Handler = async (req, res) => {
-  const url = req.originalUrl
-  let status = Codes.errorServer
-
-  try {
-    const {
-      body: {
-        data: { attributes }
-      }
-    } = req
-
-    const { name, client_secret } = attributes
-
-    const existingClient = await Client.findOne({ where: { name, is_active: true } })
-    if (existingClient) {
-      status = Codes.badRequest
-      throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-007',
-          suggestions: 'Elija un nombre diferente para el componente cliente.',
-          title: 'Nombre de cliente ya en uso.'
-        },
-        status,
-        'Ya existe un cliente con el nombre especificado.'
-      )
-    }
-
-    const secretHash = await argon2.hash(client_secret, {
-      type: argon2.argon2id,
-      memoryCost: 19456,
-      timeCost: 2,
-      parallelism: 1
-    })
-
-    const clientId = uuidv4()
-
-    const newClient = await Client.create({
-      name,
-      client_id: clientId,
-      secret_hash: secretHash,
-      is_active: true
-    })
-
-    await logEvent(AuditEventType.CLIENT_REGISTERED, newClient, { msg: 'Registro de nuevo cliente completado satisfactoriamente.', name }, req)
-
-    status = Codes.success
-    return res.status(status).json(
-      JsonApiResponseData(
-        'client',
-        {
-          client_id: newClient.client_id
-        },
-        url
-      )
-    )
-  } catch (error) {
-    LogWarn('registerClient', 'V1', error)
     return res.status(status).json(JsonApiResponseError(error, url))
   }
 }

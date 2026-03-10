@@ -10,7 +10,6 @@ interface IEnv {
   DB_PASSWORD: string
   DB_HOST: string
   DB_PORT: number
-  TOKEN: string
   SECRET_KEY: string
   MAX_CONNECTION: number
   MIN_CONNECTION: number
@@ -28,7 +27,6 @@ const schema = Joi.object({
   DB_PASSWORD: Joi.string().required(),
   DB_HOST: Joi.string().required(),
   DB_PORT: Joi.number().required(),
-  TOKEN: Joi.string().required(),
   SECRET_KEY: Joi.string().required(),
   MAX_CONNECTION: Joi.number().empty('').default(72),
   MIN_CONNECTION: Joi.number().empty('').default(0),
