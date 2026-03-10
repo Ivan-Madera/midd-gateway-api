@@ -3,7 +3,6 @@ import { Codes } from '../utils/codeStatus'
 import request from 'supertest'
 
 afterAll(async () => {
-  await server.close()
 })
 
 describe('Tests about diaries', () => {
