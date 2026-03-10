@@ -3,6 +3,7 @@ import { Codes } from '../utils/codeStatus'
 import { JsonApiResponseError } from '../utils/jsonApiResponses'
 import { ErrorException } from '../utils/Exceptions'
 import { LogWarn } from '../utils/logger'
+import { oauthErrors } from '../errors/oauth.errors'
 import {
   createTokenService,
   generatePasswordService,
@@ -86,11 +87,7 @@ export const verifyToken: Handler = async (req, res) => {
     if (!token) {
       status = Codes.badRequest
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-005',
-          suggestions: 'Verifique el token en los atributos de la solicitud.',
-          title: 'Token faltante.'
-        },
+        oauthErrors.TOKEN_MISSING,
         status,
         'El token es obligatorio'
       )
@@ -150,11 +147,7 @@ export const revokeSession: Handler = async (req, res) => {
     if (!token) {
       status = Codes.badRequest
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-005',
-          suggestions: 'Verifique el token en los atributos de la solicitud.',
-          title: 'Token faltante.'
-        },
+        oauthErrors.TOKEN_MISSING,
         status,
         'El token es obligatorio'
       )
@@ -192,11 +185,7 @@ export const introspect: Handler = async (req, res) => {
     if (!token) {
       status = Codes.badRequest
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-005',
-          suggestions: 'Verifique el token en los atributos de la solicitud.',
-          title: 'Token faltante.'
-        },
+        oauthErrors.TOKEN_MISSING,
         status,
         'El token es obligatorio'
       )

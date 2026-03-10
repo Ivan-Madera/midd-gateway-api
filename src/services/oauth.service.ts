@@ -17,6 +17,7 @@ import { Op } from 'sequelize'
 import Client from '../database/models/Client.model'
 import Session from '../database/models/Session.model'
 import env from '../config/callEnv'
+import { oauthErrors } from '../errors/oauth.errors'
 
 export const registerClientService = async (
   url: string,
@@ -34,11 +35,7 @@ export const registerClientService = async (
     if (existingClient) {
       status = Codes.badRequest
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-007',
-          suggestions: 'Elija un nombre diferente para el componente cliente.',
-          title: 'Nombre de cliente ya en uso.'
-        },
+        oauthErrors.CLIENT_ALREADY_EXISTS,
         status,
         'Ya existe un cliente con el nombre especificado.'
       )
@@ -103,12 +100,7 @@ export const createTokenService = async (
     if (!client) {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-004',
-          suggestions:
-            'Verifique las credenciales del cliente en la solicitud.',
-          title: 'Cliente no autorizado.'
-        },
+        oauthErrors.CLIENT_CREDENTIALS_INVALID,
         status,
         'Cliente no encontrado o inactivo'
       )
@@ -118,11 +110,7 @@ export const createTokenService = async (
     if (client.lockout_until && client.lockout_until > new Date()) {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-010',
-          suggestions: 'Espere unos minutos antes de intentar nuevamente.',
-          title: 'Cuenta bloqueada.'
-        },
+        oauthErrors.ACCOUNT_BLOCKED,
         status,
         `Demasiados intentos fallidos. Intente de nuevo después de ${client.lockout_until.toISOString()}`
       )
@@ -157,12 +145,7 @@ export const createTokenService = async (
 
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-004',
-          suggestions:
-            'Verifique las credenciales del cliente en la solicitud.',
-          title: 'Cliente no autorizado.'
-        },
+        oauthErrors.CLIENT_CREDENTIALS_INVALID,
         status,
         'El cliente no pudo ser autenticado'
       )
@@ -215,11 +198,7 @@ export const verifyTokenService = async (
     const decoded = (await verifyJwt(token).catch((e: any) => {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-006',
-          suggestions: 'Renueve el token utilizando el endpoint oauth/token.',
-          title: 'Fallo en la verificación del token.'
-        },
+        oauthErrors.INVALID_TOKEN,
         status,
         e.message || 'El token es inválido o ha expirado.'
       )
@@ -258,11 +237,7 @@ export const verifyTokenService = async (
 
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-008',
-          suggestions: 'Autentíquese de nuevo para obtener un nuevo token.',
-          title: 'Sesión revocada.'
-        },
+        oauthErrors.SESSION_REVOKED,
         status,
         'La sesión asociada con este token ha sido revocada o ya no existe.'
       )
@@ -309,12 +284,7 @@ export const revokeAllSessionsService = async (
     if (!client) {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-004',
-          suggestions:
-            'Verifique las credenciales del cliente en la solicitud.',
-          title: 'Cliente no autorizado.'
-        },
+        oauthErrors.CLIENT_CREDENTIALS_INVALID,
         status,
         'Cliente no encontrado o inactivo'
       )
@@ -324,12 +294,7 @@ export const revokeAllSessionsService = async (
     if (!ok) {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-004',
-          suggestions:
-            'Verifique las credenciales del cliente en la solicitud.',
-          title: 'Cliente no autorizado.'
-        },
+        oauthErrors.CLIENT_CREDENTIALS_INVALID,
         status,
         'El cliente no pudo ser autenticado'
       )
@@ -393,12 +358,7 @@ export const revokeSessionService = async (
     if (!client) {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-004',
-          suggestions:
-            'Verifique las credenciales del cliente en la solicitud.',
-          title: 'Cliente no autorizado.'
-        },
+        oauthErrors.CLIENT_CREDENTIALS_INVALID,
         status,
         'Cliente no encontrado o inactivo'
       )
@@ -408,12 +368,7 @@ export const revokeSessionService = async (
     if (!ok) {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-004',
-          suggestions:
-            'Verifique las credenciales del cliente en la solicitud.',
-          title: 'Cliente no autorizado.'
-        },
+        oauthErrors.CLIENT_CREDENTIALS_INVALID,
         status,
         'El cliente no pudo ser autenticado'
       )
@@ -422,11 +377,7 @@ export const revokeSessionService = async (
     const decoded = (await verifyJwt(token).catch((e: any) => {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-006',
-          suggestions: 'El token podría estar mal formado o ser inválido.',
-          title: 'Fallo en la verificación del token.'
-        },
+        oauthErrors.INVALID_TOKEN,
         status,
         e.message || 'El token es inválido.'
       )
@@ -442,11 +393,7 @@ export const revokeSessionService = async (
     if (!session) {
       status = Codes.badRequest
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-009',
-          suggestions: 'Asegúrese de que el token pertenece a este cliente.',
-          title: 'Sesión no encontrada.'
-        },
+        oauthErrors.SESSION_NOT_FOUND,
         status,
         'La sesión asociada con este token no existe o no pertenece a este cliente.'
       )
@@ -503,12 +450,7 @@ export const introspectService = async (
     if (!client) {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-004',
-          suggestions:
-            'Verifique las credenciales del cliente en la solicitud.',
-          title: 'Cliente no autorizado.'
-        },
+        oauthErrors.CLIENT_CREDENTIALS_INVALID,
         status,
         'Cliente no encontrado o inactivo'
       )
@@ -518,12 +460,7 @@ export const introspectService = async (
     if (!ok) {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-004',
-          suggestions:
-            'Verifique las credenciales del cliente en la solicitud.',
-          title: 'Cliente no autorizado.'
-        },
+        oauthErrors.CLIENT_CREDENTIALS_INVALID,
         status,
         'El cliente no pudo ser autenticado'
       )
@@ -587,12 +524,7 @@ export const revokeOldSessionsService = async (
     if (!client) {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-004',
-          suggestions:
-            'Verifique las credenciales del cliente en la solicitud.',
-          title: 'Cliente no autorizado.'
-        },
+        oauthErrors.CLIENT_CREDENTIALS_INVALID,
         status,
         'Cliente no encontrado o inactivo'
       )
@@ -602,12 +534,7 @@ export const revokeOldSessionsService = async (
     if (!ok) {
       status = Codes.unauthorized
       throw new ErrorException(
-        {
-          code: 'OAUTH-ERROR-004',
-          suggestions:
-            'Verifique las credenciales del cliente en la solicitud.',
-          title: 'Cliente no autorizado.'
-        },
+        oauthErrors.CLIENT_CREDENTIALS_INVALID,
         status,
         'El cliente no pudo ser autenticado'
       )
