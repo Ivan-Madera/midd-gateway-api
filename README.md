@@ -33,14 +33,14 @@ Centraliza la lógica de autenticación evitando que cada microservicio o aplica
 
 1. **Registra clientes** bajo estrictos hashes de seguridad (Argon2id).
 2. **Emite tokens JWT** de corta duración (5 minutos) atados irrevocablemente a una sesión en BD.
-3. **Verifica tokens *One-Time***: Su verificación exitosa volatiliza la sesión y protege al microservicio end-point de *replay attacks*.
+3. **Verifica tokens _One-Time_**: Su verificación exitosa volatiliza la sesión y protege al microservicio end-point de _replay attacks_.
 4. **Introspecciona variables**: Ofrece lecturas y metadatos del token sin interferir en su vida útil.
 
 ---
 
 ## Arquitectura del proyecto
 
-El proyecto cuenta con una separación estricta Clean Architecture y DDD para aislar las responsabilidades y simplificar el *testing*:
+El proyecto cuenta con una separación estricta Clean Architecture y DDD para aislar las responsabilidades y simplificar el _testing_:
 
 ```text
 midd-gateway-api/
@@ -52,29 +52,29 @@ midd-gateway-api/
 │   │   ├── models/                 # Modelos ORM (Client.model, Session.model, AuditLog.model)
 │   │   └── transaction.ts          # Helpers unificados para manejo de transacciones BD
 │   ├── entities/                   # Interfaces TS (jsonApiResponses, jwt.entities)
-│   ├── errors/                     # Catálogo de errores de mapeo rápido 
+│   ├── errors/                     # Catálogo de errores de mapeo rápido
 │   ├── middlewares/                # Capas defensivas (Rate limiting, Body struct validators, CORS)
 │   ├── repositories/               # Query y Mutations aisladas contra base de datos
 │   ├── routes/                     # Definición e inyección del Swagger local (oauth.routes.ts)
 │   ├── services/                   # Core/Lógica (oauth.service.ts)
 │   ├── tests/                      # Setup Unit Testing & Mocks (oauth.spec.ts aislados)
 │   ├── utils/                      # Inyectables globales (log4js envoltorio, factory codes)
-│   └── validators/                 # Reglas estáticas de req.body y express-validator 
+│   └── validators/                 # Reglas estáticas de req.body y express-validator
 ```
 
 ---
 
 ## Tecnologías utilizadas
 
-| Categoría          | Tecnología                         | Versión                  |
-| ------------------ | ---------------------------------- | ------------------------ |
-| Lenguaje           | TypeScript                         | ^5.3.3                   |
-| Framework HTTP     | Express                            | ^4.19.2                  |
-| Base de datos      | MySQL (mysql2) + Sequelize         | ^3.9.2 / ^6.37.1         |
-| Core Cryptografía  | **Argon2id**                       | ^0.44.0                  |
-| Autenticación      | JSON Web Token (HS512)             | ^9.0.3                   |
-| Seguridad API      | Helmet, CORS, express-rate-limit   | ^8.0.0 / ^2.8.5 / ^8.2.1 |
-| Testing/Cobertura  | Jest (Natvie V8) + Supertest       | ^29.7.0                  |
+| Categoría         | Tecnología                       | Versión                  |
+| ----------------- | -------------------------------- | ------------------------ |
+| Lenguaje          | TypeScript                       | ^5.3.3                   |
+| Framework HTTP    | Express                          | ^4.19.2                  |
+| Base de datos     | MySQL (mysql2) + Sequelize       | ^3.9.2 / ^6.37.1         |
+| Core Cryptografía | **Argon2id**                     | ^0.44.0                  |
+| Autenticación     | JSON Web Token (HS512)           | ^9.0.3                   |
+| Seguridad API     | Helmet, CORS, express-rate-limit | ^8.0.0 / ^2.8.5 / ^8.2.1 |
+| Testing/Cobertura | Jest (Natvie V8) + Supertest     | ^29.7.0                  |
 
 ---
 
@@ -120,18 +120,18 @@ npm run seeder  # Población inicial de testing
 ## Comandos del proyecto
 
 ```bash
-# Servidor en Local interactivo 
+# Servidor en Local interactivo
 npm run dev
 
 # Generar compilación JS de Prod
-npm run build 
+npm run build
 
 # Script Prod Node Nativo (Requiere Build previo)
 npm start
 
 # Testing unitario automatizado y reporte coverage
 npm run jest
-npx jest --coverage  
+npx jest --coverage
 
 # Automatización ORM
 npm run migrate
@@ -142,8 +142,8 @@ npm run new:migration
 
 ## Endpoints de la API
 
-*Mapeados en la raíz:* `/api/v1`
-*Headers Forzosos:* `Content-Type: application/vnd.api+json`
+_Mapeados en la raíz:_ `/api/v1`
+_Headers Forzosos:_ `Content-Type: application/vnd.api+json`
 
 ### Módulo OAuth
 
@@ -154,13 +154,14 @@ npm run new:migration
 | `POST` | `/api/v1/oauth/verify`         | Decrypt Token y Quema Inmediata de Sesión       |
 | `POST` | `/api/v1/oauth/introspect`     | Metadatos Seguros Lectura Token                 |
 | `POST` | `/api/v1/oauth/revoke-session` | Apagado asíncrono UUID único de sesión          |
-| `POST` | `/api/v1/oauth/revoke-all`     | *Batch:* Eliminar todas las sesiones vinculadas |
+| `POST` | `/api/v1/oauth/revoke-all`     | _Batch:_ Eliminar todas las sesiones vinculadas |
 
 ---
 
 ## Ejemplos de Interacciones Código y Request Base
 
 **Payload `POST /oauth/token` (JSON:API Standard)**
+
 ```json
 {
   "data": {
@@ -178,14 +179,22 @@ npm run new:migration
 ```typescript
 import { Handler } from 'express'
 import { Codes } from '../utils/codeStatus'
-import { JsonApiResponseError, JsonApiResponseData } from '../utils/jsonApiResponses'
+import {
+  JsonApiResponseError,
+  JsonApiResponseData
+} from '../utils/jsonApiResponses'
 
 export const revokeOldSessions: Handler = async (req, res) => {
   const url = req.originalUrl
   try {
     const { client_id, client_secret } = req.body.data.attributes
 
-    const oauthService = await revokeOldSessionsService(url, client_id, client_secret, req)
+    const oauthService = await revokeOldSessionsService(
+      url,
+      client_id,
+      client_secret,
+      req
+    )
 
     return res.status(oauthService.status).json(oauthService.response)
   } catch (error) {
@@ -198,24 +207,25 @@ export const revokeOldSessions: Handler = async (req, res) => {
 
 ## Seguridad Fortificada
 
-- **`helmet` y `rateLimit`**: Bloquean ataques DOS pasivos con headers *CSP*. El enpoint de creación de tokens soporta menos peticiones simultáneas previniendo *Brute forcing*.
+- **`helmet` y `rateLimit`**: Bloquean ataques DOS pasivos con headers _CSP_. El enpoint de creación de tokens soporta menos peticiones simultáneas previniendo _Brute forcing_.
 - **Argon2id Hashings**: Uso de algoritmos RAM-heavy previniendo extracciones eficaces y decaimientos DB pasivos de la información maestra de clientes.
-- **Middlewares Defensivos**: El `validateResult` enruta las excepciones de `express-validator` rechazando *payloads* mutilados inmediatamente antes de procesarlas o hacer logs pesados al controller.
+- **Middlewares Defensivos**: El `validateResult` enruta las excepciones de `express-validator` rechazando _payloads_ mutilados inmediatamente antes de procesarlas o hacer logs pesados al controller.
 
 ---
 
 ## Docker
 
-El contenedor nativo ha sido optimizado vía *Multi-Stage build* en Alpine para generar un bloque limpio y exento del ambiente `devDependency`:
+El contenedor nativo ha sido optimizado vía _Multi-Stage build_ en Alpine para generar un bloque limpio y exento del ambiente `devDependency`:
 
 1. `Build Stage`: Transpila
-2. `Final Stage`: Copia puros binarios generados bajo usuario seguro rootless usando *Dumb-init* manejador PID1 previniendo *Zombies*.
+2. `Final Stage`: Copia puros binarios generados bajo usuario seguro rootless usando _Dumb-init_ manejador PID1 previniendo _Zombies_.
 
 ```bash
 docker build -t midd-gateway-api .
 docker-compose up -d
 ```
-*(Requiere previamente en el Engine `docker network create mysql_default`)*.
+
+_(Requiere previamente en el Engine `docker network create mysql_default`)_.
 
 ---
 
