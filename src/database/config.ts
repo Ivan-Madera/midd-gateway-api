@@ -16,11 +16,11 @@ LogMark(
 const rds =
   env.ENV === 'production'
     ? {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false
+        ssl: {
+          require: true,
+          rejectUnauthorized: false
+        }
       }
-    }
     : {}
 
 class Database {

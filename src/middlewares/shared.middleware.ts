@@ -45,8 +45,9 @@ export const baseRoute = (_req: any, res: any, _next: any): void => {
             <span class="badge"><span class="dot"></span> En línea</span>
             <span class="badge">Entorno: <strong>${env.ENV}</strong></span>
             <span class="badge">Puerto: <strong>${env.PORT}</strong></span>
-            <span class="badge">Versión de Node: <strong>${process.versions.node
-    }</strong></span>
+            <span class="badge">Versión de Node: <strong>${
+              process.versions.node
+            }</strong></span>
           </div>
                      <div class="grid">
              <div class="tile">
@@ -62,15 +63,16 @@ export const baseRoute = (_req: any, res: any, _next: any): void => {
                <div class="v">Helmet, CORS, JWT, validaciones robustas</div>
              </div>
            </div>
-            ${env.ENV !== 'production'
-      ? `<div class="docs-section">
+            ${
+              env.ENV !== 'production'
+                ? `<div class="docs-section">
               <a href="/docs" class="btn-docs">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2 5 5h-5V4zM6 20V4h5v7h7v9H6z"/><path d="M8 12h8v2H8zm0 4h5v2H8z"/></svg>
                 Ver Documentación API
               </a>
             </div>`
-      : ''
-    }
+                : ''
+            }
         </section>
         <footer class="footer">© ${new Date().getFullYear()} · Made with ❤️ by Ivan Madera</footer>
       </main>

@@ -14,6 +14,15 @@ import {
   methodValidator
 } from '../middlewares/authentication.middleware'
 import { authLimiter } from '../config/rateLimit'
+import {
+  createTokenValidator,
+  introspectValidator,
+  registerClientValidator,
+  revokeAllSessionsValidator,
+  revokeOldSessionsValidator,
+  revokeSessionValidator,
+  verifyTokenValidator
+} from '../validators/oauth.validators'
 
 const router = Router()
 
@@ -63,7 +72,7 @@ const router = Router()
  */
 router.post(
   '/oauth/client',
-  [methodValidator, contentTypeValidator],
+  [methodValidator, contentTypeValidator, ...registerClientValidator],
   registerClient
 )
 
@@ -113,7 +122,11 @@ router.post(
  *       500:
  *         description: Mensaje de error.
  */
-router.post('/oauth/token', [authLimiter, methodValidator, contentTypeValidator], createToken)
+router.post(
+  '/oauth/token',
+  [authLimiter, methodValidator, contentTypeValidator, ...createTokenValidator],
+  createToken
+)
 
 /**
  * @swagger
@@ -160,7 +173,7 @@ router.post('/oauth/token', [authLimiter, methodValidator, contentTypeValidator]
  */
 router.post(
   '/oauth/verify',
-  [methodValidator, contentTypeValidator],
+  [methodValidator, contentTypeValidator, ...verifyTokenValidator],
   verifyToken
 )
 
@@ -206,7 +219,7 @@ router.post(
  */
 router.post(
   '/oauth/revoke-all',
-  [methodValidator, contentTypeValidator],
+  [methodValidator, contentTypeValidator, ...revokeAllSessionsValidator],
   revokeAllSessions
 )
 
@@ -257,7 +270,7 @@ router.post(
  */
 router.post(
   '/oauth/revoke-session',
-  [methodValidator, contentTypeValidator],
+  [methodValidator, contentTypeValidator, ...revokeSessionValidator],
   revokeSession
 )
 
@@ -306,7 +319,7 @@ router.post(
  */
 router.post(
   '/oauth/introspect',
-  [methodValidator, contentTypeValidator],
+  [methodValidator, contentTypeValidator, ...introspectValidator],
   introspect
 )
 
@@ -352,10 +365,9 @@ router.post(
  */
 router.post(
   '/oauth/revoke-old',
-  [methodValidator, contentTypeValidator],
+  [methodValidator, contentTypeValidator, ...revokeOldSessionsValidator],
   revokeOldSessions
 )
-
 
 /**
  * @swagger

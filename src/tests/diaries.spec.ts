@@ -2,8 +2,7 @@ import { server } from '../config/server'
 import { Codes } from '../utils/codeStatus'
 import request from 'supertest'
 
-afterAll(async () => {
-})
+afterAll(async () => {})
 
 describe('Tests about diaries', () => {
   test('Get diaries', async () => {

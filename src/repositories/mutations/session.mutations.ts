@@ -1,5 +1,8 @@
-import { Attributes, Transaction, UpdateOptions } from "sequelize"
-import Session, { SessionCreationAttributes, SessionInstance } from "../../database/models/Session.model"
+import { Attributes, Transaction, UpdateOptions } from 'sequelize'
+import Session, {
+  SessionCreationAttributes,
+  SessionInstance
+} from '../../database/models/Session.model'
 
 export const createSession = async (
   values: SessionCreationAttributes,

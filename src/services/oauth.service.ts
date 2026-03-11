@@ -16,10 +16,20 @@ import { IJsonApiResponseGeneric } from '../entities/jsonApiResponses.entities'
 import { Op } from 'sequelize'
 import env from '../config/callEnv'
 import { oauthErrors } from '../errors/oauth.errors'
-import { findClientByPK, findOneClientByID, findOneClientByName } from '../repositories/queries/client.queries'
+import {
+  findClientByPK,
+  findOneClientByID,
+  findOneClientByName
+} from '../repositories/queries/client.queries'
 import { createClient } from '../repositories/mutations/client.mutations'
-import { findOneSessionByID, findOneSessionByIDandClientID } from '../repositories/queries/session.queries'
-import { createSession, updateSession } from '../repositories/mutations/session.mutations'
+import {
+  findOneSessionByID,
+  findOneSessionByIDandClientID
+} from '../repositories/queries/session.queries'
+import {
+  createSession,
+  updateSession
+} from '../repositories/mutations/session.mutations'
 
 export const registerClientService = async (
   url: string,
@@ -442,7 +452,10 @@ export const introspectService = async (
 
     try {
       const decoded = (await verifyJwt(token)) as any
-      const session = await findOneSessionByIDandClientID(decoded.sid, client.id)
+      const session = await findOneSessionByIDandClientID(
+        decoded.sid,
+        client.id
+      )
 
       if (session && session.revoked_at === null) {
         active = true

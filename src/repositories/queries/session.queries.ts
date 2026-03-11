@@ -1,4 +1,4 @@
-import Session, { SessionInstance } from "../../database/models/Session.model"
+import Session, { SessionInstance } from '../../database/models/Session.model'
 
 export const findOneSessionByID = async (
   sessionId: number,

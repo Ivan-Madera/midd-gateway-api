@@ -1,4 +1,4 @@
-import Client, { ClientInstance } from "../../database/models/Client.model"
+import Client, { ClientInstance } from '../../database/models/Client.model'
 
 export const findClientByPK = async (
   id: number,

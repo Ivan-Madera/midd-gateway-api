@@ -1,5 +1,8 @@
-import { Transaction } from "sequelize"
-import Client, { ClientCreationAttributes, ClientInstance } from "../../database/models/Client.model"
+import { Transaction } from 'sequelize'
+import Client, {
+  ClientCreationAttributes,
+  ClientInstance
+} from '../../database/models/Client.model'
 
 export const createClient = async (
   values: ClientCreationAttributes,
