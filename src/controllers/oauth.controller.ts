@@ -1,9 +1,7 @@
 import { Handler } from 'express'
 import { Codes } from '../utils/codeStatus'
 import { JsonApiResponseError } from '../utils/jsonApiResponses'
-import { ErrorException } from '../utils/Exceptions'
 import { LogWarn } from '../utils/logger'
-import { oauthErrors } from '../errors/oauth.errors'
 import {
   createTokenService,
   generatePasswordService,
@@ -84,15 +82,6 @@ export const verifyToken: Handler = async (req, res) => {
 
     const { token } = attributes
 
-    if (!token) {
-      status = Codes.badRequest
-      throw new ErrorException(
-        oauthErrors.TOKEN_MISSING,
-        status,
-        'El token es obligatorio'
-      )
-    }
-
     const oauthService = await verifyTokenService(url, token, req)
 
     status = oauthService.status
@@ -144,15 +133,6 @@ export const revokeSession: Handler = async (req, res) => {
 
     const { client_id, client_secret, token } = attributes
 
-    if (!token) {
-      status = Codes.badRequest
-      throw new ErrorException(
-        oauthErrors.TOKEN_MISSING,
-        status,
-        'El token es obligatorio'
-      )
-    }
-
     const oauthService = await revokeSessionService(
       url,
       client_id,
@@ -181,15 +161,6 @@ export const introspect: Handler = async (req, res) => {
     } = req
 
     const { client_id, client_secret, token } = attributes
-
-    if (!token) {
-      status = Codes.badRequest
-      throw new ErrorException(
-        oauthErrors.TOKEN_MISSING,
-        status,
-        'El token es obligatorio'
-      )
-    }
 
     const oauthService = await introspectService(
       url,
