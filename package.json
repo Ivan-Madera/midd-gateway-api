@@ -1,10 +1,10 @@
 {
-  "name": "express-jsonapi-template",
+  "name": "midd-gateway-api",
   "version": "1.0.0",
-  "description": "Template de NodeJS para desarrollos cortos y sencillos implementando las respuestas con jsonapi",
+  "description": "Servicio OAuth 2.0-inspired que provee emisión, verificación, introspección y revocación de tokens de acceso de corta duración para aplicaciones cliente",
   "main": "./app.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node build/app.js",
     "dev": "ts-node-dev app.ts",
     "jest": "npx jest",

@@ -1,4 +1,4 @@
 export interface JwtPayload {
-    uid: number
-    sid: number
+  uid: number
+  sid: number
 }

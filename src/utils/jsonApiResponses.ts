@@ -68,7 +68,8 @@ export const JsonApiResponseError = (
   const code = error.code || 'OAUTH-ERROR-000'
   const status = error.status || 500
   const pointer = url
-  const suggestions = error.suggestions || 'Por favor intente nuevamente más tarde'
+  const suggestions =
+    error.suggestions || 'Por favor intente nuevamente más tarde'
   const title = error.title || 'Error interno del servidor'
   const message = error.message || 'Ocurrió un error desconocido'
 

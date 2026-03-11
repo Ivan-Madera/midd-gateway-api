@@ -2,7 +2,7 @@ import { type Config } from 'jest'
 
 const config: Config = {
   clearMocks: true,
-  coverageProvider: 'babel',
+  coverageProvider: 'v8',
   moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'node'],
   roots: ['<rootDir>'],
   testMatch: ['**/tests/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[tj]s?(x)'],

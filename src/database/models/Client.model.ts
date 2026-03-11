@@ -15,11 +15,16 @@ interface ClientAttributes {
 
 export interface ClientCreationAttributes extends Optional<
   ClientAttributes,
-  'id' | 'is_active' | 'failed_attempts' | 'lockout_until' | 'created_at' | 'updated_at'
-> { }
+  | 'id'
+  | 'is_active'
+  | 'failed_attempts'
+  | 'lockout_until'
+  | 'created_at'
+  | 'updated_at'
+> {}
 
 export interface ClientInstance
-  extends Model<ClientAttributes, ClientCreationAttributes>, ClientAttributes { }
+  extends Model<ClientAttributes, ClientCreationAttributes>, ClientAttributes {}
 
 const Client = sequelize.define<ClientInstance>(
   'clients',
