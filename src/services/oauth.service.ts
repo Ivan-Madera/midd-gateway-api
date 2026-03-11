@@ -14,10 +14,12 @@ import { verifyToken as verifyJwt } from '../utils/tokens'
 import { JwtPayload } from '../entities/jwt.entities'
 import { IJsonApiResponseGeneric } from '../entities/jsonApiResponses.entities'
 import { Op } from 'sequelize'
-import Client from '../database/models/Client.model'
-import Session from '../database/models/Session.model'
 import env from '../config/callEnv'
 import { oauthErrors } from '../errors/oauth.errors'
+import { findClientByPK, findOneClientByID, findOneClientByName } from '../repositories/queries/client.queries'
+import { createClient } from '../repositories/mutations/client.mutations'
+import { findOneSessionByID, findOneSessionByIDandClientID } from '../repositories/queries/session.queries'
+import { createSession, updateSession } from '../repositories/mutations/session.mutations'
 
 export const registerClientService = async (
   url: string,
@@ -28,9 +30,7 @@ export const registerClientService = async (
   let status = Codes.errorServer
 
   try {
-    const existingClient = await Client.findOne({
-      where: { name, is_active: true }
-    })
+    const existingClient = await findOneClientByName(name)
 
     if (existingClient) {
       status = Codes.badRequest
@@ -50,7 +50,7 @@ export const registerClientService = async (
 
     const clientId = uuidv4()
 
-    const newClient = await Client.create({
+    const newClient = await createClient({
       name,
       client_id: clientId,
       secret_hash: secretHash,
@@ -90,12 +90,7 @@ export const createTokenService = async (
   let status = Codes.errorServer
 
   try {
-    const client = await Client.findOne({
-      where: {
-        client_id: clientId,
-        is_active: true
-      }
-    })
+    const client = await findOneClientByID(clientId)
 
     if (!client) {
       status = Codes.unauthorized
@@ -156,7 +151,7 @@ export const createTokenService = async (
     client.lockout_until = null
     await client.save()
 
-    const session = await Session.create({
+    const session = await createSession({
       client_id: client.id,
       expires_at: new Date(Date.now() + env.TOKEN_LIFETIME * 60 * 1000)
     })
@@ -204,16 +199,12 @@ export const verifyTokenService = async (
       )
     })) as JwtPayload
 
-    const session = await Session.findOne({
-      where: {
-        id: decoded.sid
-      }
-    })
+    const session = await findOneSessionByID(decoded.sid)
 
     if (!session || session.revoked_at !== null) {
       if (session && session.revoked_at !== null) {
         // Al detectar el uso de un token ya revocado, se revocan todos los tokens activos del mismo cliente por seguridad.
-        await Session.update(
+        await updateSession(
           { revoked_at: new Date() },
           {
             where: {
@@ -223,7 +214,7 @@ export const verifyTokenService = async (
           }
         )
 
-        const client = await Client.findByPk(session.client_id)
+        const client = await findClientByPK(session.client_id)
         await logEvent(
           AuditEventType.TOKEN_REUSE_DETECTION,
           client,
@@ -274,12 +265,7 @@ export const revokeAllSessionsService = async (
   let status = Codes.errorServer
 
   try {
-    const client = await Client.findOne({
-      where: {
-        client_id: clientId,
-        is_active: true
-      }
-    })
+    const client = await findOneClientByID(clientId)
 
     if (!client) {
       status = Codes.unauthorized
@@ -300,7 +286,7 @@ export const revokeAllSessionsService = async (
       )
     }
 
-    await Session.update(
+    await updateSession(
       { revoked_at: new Date() },
       {
         where: {
@@ -348,12 +334,7 @@ export const revokeSessionService = async (
   let status = Codes.errorServer
 
   try {
-    const client = await Client.findOne({
-      where: {
-        client_id: clientId,
-        is_active: true
-      }
-    })
+    const client = await findOneClientByID(clientId)
 
     if (!client) {
       status = Codes.unauthorized
@@ -383,12 +364,7 @@ export const revokeSessionService = async (
       )
     })) as JwtPayload
 
-    const session = await Session.findOne({
-      where: {
-        id: decoded.sid,
-        client_id: client.id
-      }
-    })
+    const session = await findOneSessionByIDandClientID(decoded.sid, client.id)
 
     if (!session) {
       status = Codes.badRequest
@@ -440,12 +416,7 @@ export const introspectService = async (
   let status = Codes.errorServer
 
   try {
-    const client = await Client.findOne({
-      where: {
-        client_id: clientId,
-        is_active: true
-      }
-    })
+    const client = await findOneClientByID(clientId)
 
     if (!client) {
       status = Codes.unauthorized
@@ -471,12 +442,7 @@ export const introspectService = async (
 
     try {
       const decoded = (await verifyJwt(token)) as any
-      const session = await Session.findOne({
-        where: {
-          id: decoded.sid,
-          client_id: client.id
-        }
-      })
+      const session = await findOneSessionByIDandClientID(decoded.sid, client.id)
 
       if (session && session.revoked_at === null) {
         active = true
@@ -514,12 +480,7 @@ export const revokeOldSessionsService = async (
   let status = Codes.errorServer
 
   try {
-    const client = await Client.findOne({
-      where: {
-        client_id: clientId,
-        is_active: true
-      }
-    })
+    const client = await findOneClientByID(clientId)
 
     if (!client) {
       status = Codes.unauthorized
@@ -542,7 +503,7 @@ export const revokeOldSessionsService = async (
 
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
-    const [affectedCount] = await Session.update(
+    const [affectedCount] = await updateSession(
       { revoked_at: new Date() },
       {
         where: {
