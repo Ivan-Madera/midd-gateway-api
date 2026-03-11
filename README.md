@@ -6,93 +6,60 @@
 
 ## Tabla de contenidos
 
-- [Descripción general](#descripción-general)
-- [Arquitectura del proyecto](#arquitectura-del-proyecto)
-- [Tecnologías utilizadas](#tecnologías-utilizadas)
-- [Instalación y configuración](#instalación-y-configuración)
-- [Variables de entorno](#variables-de-entorno)
-- [Comandos del proyecto](#comandos-del-proyecto)
-- [Guía de uso](#guía-de-uso)
-- [Endpoints de la API](#endpoints-de-la-api)
-- [Flujos principales](#flujos-principales)
-- [Documentación interna](#documentación-interna)
-- [Seguridad](#seguridad)
-- [Docker](#docker)
-- [Buenas prácticas implementadas](#buenas-prácticas-implementadas)
-- [Roadmap](#roadmap)
-- [Licencia](#licencia)
+1. [Descripción general](#descripción-general)
+2. [Arquitectura del proyecto](#arquitectura-del-proyecto)
+3. [Tecnologías utilizadas](#tecnologías-utilizadas)
+4. [Instalación y configuración](#instalación-y-configuración)
+5. [Variables de entorno](#variables-de-entorno)
+6. [Comandos del proyecto](#comandos-del-proyecto)
+7. [Guía de uso](#guía-de-uso)
+8. [Endpoints de la API](#endpoints-de-la-api)
+9. [Flujos principales](#flujos-principales)
+10. [Documentación interna](#documentación-interna)
+11. [Seguridad](#seguridad)
+12. [Docker](#docker)
+13. [Buenas prácticas implementadas](#buenas-prácticas-implementadas)
+14. [Licencia](#licencia)
 
 ---
 
 ## Descripción general
 
-`midd-gateway-api` es un **Gateway de autorización** que actúa como punto central de autenticación para sistemas que necesiten emitir y validar tokens de acceso de manera segura y controlada.
+`midd-gateway-api` es un **Gateway de autorización** que actúa como punto central de autenticación para sistemas que necesiten emitir y validar tokens de acceso de manera segura y controlada. Estandariza la comunicación implementando explícitamente el modelo **JSON:API**.
 
 ### ¿Qué problema soluciona?
 
-Centraliza la lógica de autenticación evitando que cada microservicio o aplicación tenga que gestionar sus propias credenciales y tokens. El Gateway:
+Centraliza la lógica de autenticación evitando que cada microservicio o aplicación del ecosistema tenga que gestionar paralelamente sus propias credenciales y la expiración de tokens. El Gateway:
 
-1. **Registra clientes** con un nombre único y un secreto hasheado con Argon2id.
-2. **Emite tokens JWT** de corta duración (5 minutos) vinculados a una sesión persistente en base de datos.
-3. **Verifica tokens** de uso único: tras una verificación exitosa, la sesión queda revocada automáticamente.
-4. **Introspecciona tokens** para obtener metadatos sin consumirlos.
-5. **Revoca sesiones** de forma individual, masiva o por antigüedad (> 24 h).
+1. **Registra clientes** bajo estrictos hashes de seguridad (Argon2id).
+2. **Emite tokens JWT** de corta duración (5 minutos) atados irrevocablemente a una sesión en BD.
+3. **Verifica tokens *One-Time***: Su verificación exitosa volatiliza la sesión y protege al microservicio end-point de *replay attacks*.
+4. **Introspecciona variables**: Ofrece lecturas y metadatos del token sin interferir en su vida útil.
 
 ---
 
 ## Arquitectura del proyecto
 
-```
+El proyecto cuenta con una separación estricta Clean Architecture y DDD para aislar las responsabilidades y simplificar el *testing*:
+
+```text
 midd-gateway-api/
-├── app.ts                          # Entrypoint: inicia el servidor
+├── app.ts                          # Entrypoint: inicia el servidor y variables
 ├── src/
-│   ├── config/
-│   │   ├── callEnv.ts              # Carga y valida variables de entorno con Joi
-│   │   ├── helmet.ts               # Configuración de CSP y HSTS
-│   │   ├── rateLimit.ts            # Limitadores de tasa (general y auth)
-│   │   ├── server.ts               # Clase Server: configura middlewares, rutas y Swagger
-│   │   └── swagger.ts              # Opciones y metadata de Swagger UI
-│   ├── controllers/
-│   │   └── oauth.controller.ts     # Lógica de negocio para los endpoints OAuth
-│   ├── database/
-│   │   ├── config.ts               # Pool de conexión Sequelize (MySQL)
-│   │   ├── transaction.ts          # Helpers: manageTransaction, commit, rollback
-│   │   ├── models/
-│   │   │   ├── Client.model.ts     # Modelo ORM de clientes OAuth
-│   │   │   └── Session.model.ts    # Modelo ORM de sesiones/tokens
-│   │   ├── migrations/             # Migraciones de Sequelize CLI
-│   │   ├── seeders/                # Seeders de Sequelize CLI
-│   │   └── config/                 # Configuración específica de Sequelize CLI
-│   ├── entities/
-│   │   ├── jsonApiResponses.entities.ts  # Interfaces TypeScript de respuestas JSON:API
-│   │   └── jwt.entities.ts               # Interface del payload JWT
-│   ├── errors/
-│   │   └── validation.errors.ts    # Catálogo de errores de validación reutilizables
-│   ├── middlewares/
-│   │   ├── authentication.middleware.ts  # checkAuth, methodValidator, contentTypeValidator, checkBearer
-│   │   ├── shared.middleware.ts          # baseRoute (landing HTML) y headerNoCache
-│   │   └── validation.middleware.ts      # validateResult (express-validator)
-│   ├── repositories/
-│   │   ├── mutations/
-│   │   │   └── user.mutations.ts   # Operaciones de escritura (createUser, updateUser)
-│   │   └── queries/
-│   │       └── user.queries.ts     # Operaciones de lectura (findAllUsers)
-│   ├── routes/
-│   │   └── oauth.routes.ts         # Definición de rutas OAuth con documentación Swagger
-│   ├── services/
-│   │   ├── users.service.ts        # Servicios de usuario (token, CRUD con transacciones)
-│   │   └── diaries.service.ts      # Servicio de ejemplo con datos en memoria
-│   ├── tests/
-│   │   └── diaries.spec.ts         # Tests de ejemplo con Jest
-│   ├── utils/
-│   │   ├── codeStatus.ts           # Enum de códigos HTTP
-│   │   ├── Exceptions.ts           # Clase ErrorException personalizada
-│   │   ├── httpClient.ts           # Cliente HTTP Axios (GET, POST, PUT)
-│   │   ├── jsonApiResponses.ts     # Factories de respuestas JSON:API
-│   │   ├── logger.ts               # Logger estructurado con log4js
-│   │   └── tokens.ts               # createAccessToken y verifyToken (JWT HS512)
-│   └── validators/
-│       └── diaries.validators.ts   # Validadores express-validator de ejemplo
+│   ├── config/                     # Config. de arranques (server, helmet, swagger, validador Joi ENV)
+│   ├── controllers/                # Lógica de enrutamiento y extracción body HTTP (oauth.controller.ts)
+│   ├── database/                   # Pool de Sequelize, migraciones y seeders
+│   │   ├── models/                 # Modelos ORM (Client.model, Session.model, AuditLog.model)
+│   │   └── transaction.ts          # Helpers unificados para manejo de transacciones BD
+│   ├── entities/                   # Interfaces TS (jsonApiResponses, jwt.entities)
+│   ├── errors/                     # Catálogo de errores de mapeo rápido 
+│   ├── middlewares/                # Capas defensivas (Rate limiting, Body struct validators, CORS)
+│   ├── repositories/               # Query y Mutations aisladas contra base de datos
+│   ├── routes/                     # Definición e inyección del Swagger local (oauth.routes.ts)
+│   ├── services/                   # Core/Lógica (oauth.service.ts)
+│   ├── tests/                      # Setup Unit Testing & Mocks (oauth.spec.ts aislados)
+│   ├── utils/                      # Inyectables globales (log4js envoltorio, factory codes)
+│   └── validators/                 # Reglas estáticas de req.body y express-validator 
 ```
 
 ---
@@ -102,21 +69,12 @@ midd-gateway-api/
 | Categoría          | Tecnología                         | Versión                  |
 | ------------------ | ---------------------------------- | ------------------------ |
 | Lenguaje           | TypeScript                         | ^5.3.3                   |
-| Runtime            | Node.js                            | ≥ 18.0.0                 |
 | Framework HTTP     | Express                            | ^4.19.2                  |
-| ORM                | Sequelize                          | ^6.37.1                  |
-| Base de datos      | MySQL (mysql2)                     | ^3.9.2                   |
+| Base de datos      | MySQL (mysql2) + Sequelize         | ^3.9.2 / ^6.37.1         |
+| Core Cryptografía  | **Argon2id**                       | ^0.44.0                  |
 | Autenticación      | JSON Web Token (HS512)             | ^9.0.3                   |
-| Hashing            | Argon2id                           | ^0.44.0                  |
-| Documentación      | Swagger UI Express + swagger-jsdoc | ^5.0.1 / ^6.2.8          |
-| Seguridad          | Helmet, CORS, express-rate-limit   | ^8.0.0 / ^2.8.5 / ^8.2.1 |
-| Validación de env  | Joi                                | ^17.13.3                 |
-| Validación de body | express-validator                  | 7.3.0                    |
-| Logging            | log4js                             | ^6.9.1                   |
-| HTTP Client        | Axios                              | 1.12.0                   |
-| UUID               | uuid                               | ^11.0.3                  |
-| Testing            | Jest + Supertest + ts-jest         | ^29.7.0                  |
-| Dev server         | ts-node-dev                        | ^2.0.0                   |
+| Seguridad API      | Helmet, CORS, express-rate-limit   | ^8.0.0 / ^2.8.5 / ^8.2.1 |
+| Testing/Cobertura  | Jest (Natvie V8) + Supertest       | ^29.7.0                  |
 
 ---
 
@@ -124,427 +82,145 @@ midd-gateway-api/
 
 ### Requisitos previos
 
-- **Node.js** ≥ 18.0.0
-- **npm** ≥ 9.0.0
-- **MySQL** 5.7+ / 8.x
+- Node.js ≥ 18.0.0 y NPM
+- MySQL 5.7+ local (O contenedor configurado)
 
-### Pasos de instalación
+### Pasos de clonación
 
 ```bash
-# 1. Clonar el repositorio
 git clone <repo-url>
 cd midd-gateway-api
 
-# 2. Instalar dependencias
+# 1. Instalar dependencies
 npm install
 
-# 3. Configurar variables de entorno
+# 2. Plantilla ENV
 cp .env.example .env
-# Editar .env con los valores correspondientes
 
-# 4. Ejecutar migraciones para crear las tablas
-npm run migrate
-
-# 5. (Opcional) Ejecutar seeders
-npm run seeder
+# 3. Base de Datos
+npm run migrate # Modelos base
+npm run seeder  # Población inicial de testing
 ```
 
 ---
 
-## Variables de entorno
+## Variables de entorno (.env)
 
-Todas las variables son **obligatorias** a menos que se indique un valor por defecto. La validación ocurre en el arranque mediante **Joi**; si alguna variable falta o es inválida, el proceso no inicia.
-
-| Variable         | Tipo     | Default | Descripción                                      |
-| ---------------- | -------- | ------- | ------------------------------------------------ |
-| `ENV`            | `string` | —       | Entorno (`development`, `production`, etc.)      |
-| `PORT`           | `number` | —       | Puerto en el que escucha el servidor             |
-| `DB_DATABASE`    | `string` | —       | Nombre de la base de datos MySQL                 |
-| `DB_USERNAME`    | `string` | —       | Usuario de MySQL                                 |
-| `DB_PASSWORD`    | `string` | —       | Contraseña de MySQL                              |
-| `DB_HOST`        | `string` | —       | Host de MySQL                                    |
-| `DB_PORT`        | `number` | —       | Puerto de MySQL                                  |
-| `TOKEN`          | `string` | —       | Token estático para `checkAuth` (header `token`) |
-| `SECRET_KEY`     | `string` | —       | Clave secreta para firmar/verificar JWTs         |
-| `MAX_CONNECTION` | `number` | `72`    | Máximo de conexiones en el pool                  |
-| `MIN_CONNECTION` | `number` | `0`     | Mínimo de conexiones en el pool                  |
-| `DB_ACQUIRE`     | `number` | `30000` | Tiempo máximo (ms) para adquirir una conexión    |
-| `DB_IDLE`        | `number` | `5000`  | Tiempo (ms) antes de liberar una conexión idle   |
-| `DB_EVICT`       | `number` | `5000`  | Intervalo (ms) para eviction del pool            |
-
-```env
-# .env.example
-ENV=development
-PORT=3000
-DB_DATABASE=gateway_db
-DB_USERNAME=root
-DB_PASSWORD=secret
-DB_HOST=127.0.0.1
-DB_PORT=3306
-TOKEN=my-static-api-token
-SECRET_KEY=my-super-secret-key
-MAX_CONNECTION=72
-MIN_CONNECTION=0
-DB_ACQUIRE=30000
-DB_IDLE=5000
-DB_EVICT=5000
-```
+| Variable         | Descripción                                      |
+| ---------------- | ------------------------------------------------ |
+| `ENV`            | Entorno (`development`, `production`, etc.)      |
+| `PORT`           | Puerto de escucha HTTP                           |
+| `DB_DATABASE`    | Nombre de la DB local/remota MySQL               |
+| `TOKEN`          | Regla bearer legacy obligatoria en ciertas rutas |
+| `SECRET_KEY`     | Firma Base para los HS512 JWT                    |
+| `MAX_CONNECTION` | Top connections Sequelize Pool                   |
 
 ---
 
 ## Comandos del proyecto
 
 ```bash
-# Desarrollo con hot-reload
+# Servidor en Local interactivo 
 npm run dev
 
-# Compilar TypeScript a JavaScript (output: /build)
-npm run build
+# Generar compilación JS de Prod
+npm run build 
 
-# Iniciar en producción (requiere build previo)
+# Script Prod Node Nativo (Requiere Build previo)
 npm start
 
-# Ejecutar tests con Jest
+# Testing unitario automatizado y reporte coverage
 npm run jest
+npx jest --coverage  
 
-# Base de datos — migrations
-npm run migrate          # Aplicar migraciones pendientes
-npm run migrate:undo     # Revertir todas las migraciones
-
-# Base de datos — seeders
-npm run seeder           # Ejecutar todos los seeders
-npm run seeder:undo      # Revertir todos los seeders
-
-# Generar esqueletos (Sequelize CLI)
-npm run new:migration    # Nueva migración vacía
-npm run new:seeder       # Nuevo seeder vacío
+# Automatización ORM
+npm run migrate
+npm run new:migration
 ```
-
----
-
-## Guía de uso
-
-### Desarrollo local
-
-```bash
-npm run dev
-# → Server listening on http://127.0.0.1:3000
-# → Swagger UI disponible en http://127.0.0.1:3000/docs
-```
-
-La pantalla raíz (`GET /`) muestra una landing page con información del entorno, versión de Node y un acceso directo a la documentación (solo disponible fuera de producción).
 
 ---
 
 ## Endpoints de la API
 
-Base URL: `/api/v1`
+*Mapeados en la raíz:* `/api/v1`
+*Headers Forzosos:* `Content-Type: application/vnd.api+json`
 
-Todos los endpoints requieren:
+### Módulo OAuth
 
-- **Método**: `POST`
-- **Content-Type**: `application/vnd.api+json`
+| Método | Endpoint                       | Acción Principal                                |
+| ------ | ------------------------------ | ----------------------------------------------- |
+| `POST` | `/api/v1/oauth/client`         | Alta segura de Nuevo Cliente OAuth              |
+| `POST` | `/api/v1/oauth/token`          | Creación Acoplada de Sesión + Token             |
+| `POST` | `/api/v1/oauth/verify`         | Decrypt Token y Quema Inmediata de Sesión       |
+| `POST` | `/api/v1/oauth/introspect`     | Metadatos Seguros Lectura Token                 |
+| `POST` | `/api/v1/oauth/revoke-session` | Apagado asíncrono UUID único de sesión          |
+| `POST` | `/api/v1/oauth/revoke-all`     | *Batch:* Eliminar todas las sesiones vinculadas |
 
-### OAuth — `[V1] OAuth`
+---
 
-| Método | Endpoint                       | Descripción                                      |
-| ------ | ------------------------------ | ------------------------------------------------ |
-| `POST` | `/api/v1/oauth/client`         | Registrar un nuevo cliente OAuth                 |
-| `POST` | `/api/v1/oauth/token`          | Emitir un token de acceso                        |
-| `POST` | `/api/v1/oauth/verify`         | Verificar (y consumir) un token                  |
-| `POST` | `/api/v1/oauth/introspect`     | Introspeccionar un token sin consumirlo          |
-| `POST` | `/api/v1/oauth/revoke-session` | Revocar una sesión específica                    |
-| `POST` | `/api/v1/oauth/revoke-all`     | Revocar todas las sesiones activas de un cliente |
-| `POST` | `/api/v1/oauth/revoke-old`     | Revocar sesiones de más de 24 horas              |
+## Ejemplos de Interacciones Código y Request Base
 
-### Estructura de request (JSON:API)
-
+**Payload `POST /oauth/token` (JSON:API Standard)**
 ```json
 {
   "data": {
     "type": "oauth",
     "attributes": {
-      "client_id": "78b02e73-aa49-410a-b50a-e374d9f94218",
-      "client_secret": "your-super-secret-string"
+      "client_id": "TU-UUID-AQUI",
+      "client_secret": "raw-secreto"
     }
   }
 }
 ```
 
-### Ejemplos de respuesta exitosa
-
-**Emitir token (`/oauth/token`)**
-
-```json
-{
-  "data": {
-    "type": "session",
-    "id": "uuid-v4",
-    "attributes": {
-      "accessToken": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9..."
-    },
-    "links": { "self": "/api/v1/oauth/token" }
-  }
-}
-```
-
-**Verificar token (`/oauth/verify`)**
-
-```json
-{
-  "data": {
-    "type": "verification",
-    "id": "uuid-v4",
-    "attributes": { "valid": true },
-    "links": { "self": "/api/v1/oauth/verify" }
-  }
-}
-```
-
-**Error estándar**
-
-```json
-{
-  "code": "OAUTH-001",
-  "status": 401,
-  "source": { "pointer": "/api/v1/oauth/token" },
-  "suggestedActions": "Check the client credentials in the request.",
-  "title": "Client unauthorized.",
-  "detail": "Client not found or inactive"
-}
-```
-
----
-
-## Flujos principales
-
-### 1. Registro de cliente
-
-```
-POST /api/v1/oauth/client
-  │
-  ├─ Verificar nombre único (Client.findOne)
-  ├─ Hashear client_secret con Argon2id (type: argon2id, memoryCost: 19456)
-  ├─ Generar client_id (UUIDv4)
-  └─ Persistir en tabla `clients`
-     → Retorna { client_id }
-```
-
-### 2. Emisión de token
-
-```
-POST /api/v1/oauth/token
-  │
-  ├─ authLimiter (máx 100 req / 15 min)
-  ├─ Buscar cliente activo por client_id
-  ├─ Verificar client_secret con Argon2.verify
-  ├─ Crear sesión en tabla `sessions` (expires_at = now + 5 min)
-  └─ Firmar JWT HS512 (payload: { uid, sid }, expiresIn: "5m", issuer: "authorization-gateway")
-     → Retorna { accessToken }
-```
-
-### 3. Verificación de token (single-use)
-
-```
-POST /api/v1/oauth/verify
-  │
-  ├─ Decodificar y verificar JWT (issuer check)
-  ├─ Buscar sesión por sid (decoded.sid)
-  ├─ Validar que revoked_at === null
-  ├─ Marcar session.revoked_at = now  ← token queda invalidado
-  └─ Retorna { valid: true }
-```
-
-### 4. Introspección
-
-```
-POST /api/v1/oauth/introspect
-  │
-  ├─ Autenticar cliente (client_id + client_secret)
-  ├─ Decodificar JWT sin lanzar excepción
-  ├─ Si la sesión existe y no está revocada → active: true
-  │    + client_id, sub, sid, exp, iat
-  └─ Si el token expiró o la sesión fue revocada → active: false
-```
-
----
-
-## Documentación interna
-
-### `src/utils/tokens.ts`
-
-| Función                      | Descripción                                                              |
-| ---------------------------- | ------------------------------------------------------------------------ |
-| `createAccessToken(payload)` | Firma un JWT con HS512, expiración 5 min, issuer `authorization-gateway` |
-| `verifyToken(token)`         | Verifica la firma y el issuer; rechaza tokens expirados o malformados    |
-
-### `src/utils/jsonApiResponses.ts`
-
-| Función                                        | Descripción                                                          |
-| ---------------------------------------------- | -------------------------------------------------------------------- |
-| `JsonApiResponseData(type, attributes, links)` | Construye una respuesta `{ data: { type, id, attributes, links } }`  |
-| `JsonApiResponseMessage(type, message, links)` | Respuesta con mensaje de texto plano                                 |
-| `JsonApiResponseError(error, url)`             | Serializa cualquier error al formato JSON:API de error               |
-| `JsonApiResponseGeneric(status, response)`     | Envuelve respuesta y status en un objeto genérico para servicios     |
-| `JsonApiResponseValidator(pointer, detail)`    | Respuesta de error de validación con código `ERROR-001` y status 422 |
-
-### `src/utils/Exceptions.ts` — `ErrorException`
-
-Extiende `Error` añadiendo los campos `code`, `status`, `suggestions` y `title` para que `JsonApiResponseError` los serialice automáticamente.
+**Estructura Base de un Controlador Usando el Wrapper `JsonApi`**
 
 ```typescript
-throw new ErrorException(
-  { code: 'OAUTH-001', suggestions: '...', title: 'Client unauthorized.' },
-  401,
-  'Client not found or inactive'
-)
+import { Handler } from 'express'
+import { Codes } from '../utils/codeStatus'
+import { JsonApiResponseError, JsonApiResponseData } from '../utils/jsonApiResponses'
+
+export const revokeOldSessions: Handler = async (req, res) => {
+  const url = req.originalUrl
+  try {
+    const { client_id, client_secret } = req.body.data.attributes
+
+    const oauthService = await revokeOldSessionsService(url, client_id, client_secret, req)
+
+    return res.status(oauthService.status).json(oauthService.response)
+  } catch (error) {
+    return res.status(Codes.errorServer).json(JsonApiResponseError(error, url))
+  }
+}
 ```
-
-### `src/utils/logger.ts`
-
-Logger basado en **log4js** con timestamp localizado `es-MX`.
-
-| Export                             | Nivel | Uso                                  |
-| ---------------------------------- | ----- | ------------------------------------ |
-| `LogMark(msg)`                     | MARK  | Inicialización, parámetros de pool   |
-| `LogInfo(msg)`                     | INFO  | Servidor listo, conexión DB exitosa  |
-| `LogError(msg)`                    | ERROR | Fallos de conexión DB                |
-| `LogWarn(service, version, error)` | WARN  | Errores no críticos en controladores |
-
-### `src/utils/httpClient.ts`
-
-Wrappers sobre Axios (`getHttp`, `postHttp`, `putHttp`) que normalizan errores de red y retornan siempre `{ status, data }`.
-
-### `src/config/server.ts` — Clase `Server`
-
-| Método                   | Descripción                                                               |
-| ------------------------ | ------------------------------------------------------------------------- |
-| `initializeDB()`         | Llama a `sequelize.authenticate()` para verificar la conexión al arrancar |
-| `configureSecurity()`    | Aplica Helmet (CSP, HSTS, frameguard) y deshabilita `x-powered-by`        |
-| `configureMiddlewares()` | CORS, rate limiter general, no-cache header, JSON y URL-encoded parsers   |
-| `configureSwagger()`     | Monta Swagger UI en `/docs` (solo si `ENV !== 'production'`)              |
-| `configureRoutes()`      | Registra el router OAuth bajo `/api/v1`                                   |
-| `listen()`               | Registra `baseRoute` en `GET /` e inicia el servidor HTTP                 |
-| `close()`                | Cierra el pool de Sequelize (útil en tests)                               |
-| `getService()`           | Expone la instancia Express para supertest                                |
 
 ---
 
-## Seguridad
+## Seguridad Fortificada
 
-| Capa                       | Mecanismo                                                                                           |
-| -------------------------- | --------------------------------------------------------------------------------------------------- |
-| Hashing de secretos        | **Argon2id** (memoryCost: 19456, timeCost: 2, parallelism: 1 — recomendación OWASP)                 |
-| Firma de tokens            | **JWT HS512** con validación de issuer                                                              |
-| Tokens de uso único        | La sesión se revoca inmediatamente al verificar un token                                            |
-| Headers HTTP               | **Helmet** — CSP restrictiva, HSTS (2 años + preload), X-Frame-Options DENY, X-Powered-By eliminado |
-| Rate limiting              | `generalLimiter`: 1000 req/15 min · `authLimiter` en `/oauth/token`: 100 req/15 min                 |
-| Validación de Content-Type | Fuerza `application/vnd.api+json` en todos los endpoints                                            |
-| Cache                      | `Cache-Control: no-store` en todas las respuestas                                                   |
-| Conexión DB productiva     | SSL (`require: true`, `rejectUnauthorized: false`) en `ENV=production`                              |
-
-### Catálogo de errores
-
-| Código      | HTTP | Descripción                                              |
-| ----------- | ---- | -------------------------------------------------------- |
-| `OAUTH-001` | 401  | Cliente no encontrado, inactivo o credenciales inválidas |
-| `OAUTH-002` | 400  | Token ausente en el cuerpo del request                   |
-| `OAUTH-003` | 401  | Token inválido o expirado                                |
-| `OAUTH-004` | 400  | Nombre de cliente ya registrado                          |
-| `OAUTH-005` | 401  | Sesión revocada o inexistente                            |
-| `OAUTH-006` | 400  | Sesión no pertenece al cliente                           |
-| `ERROR-002` | 406  | Método HTTP no permitido                                 |
-| `ERROR-003` | 415  | Content-Type no permitido                                |
-| `ERROR-004` | 401  | Authorization header ausente                             |
-| `ERROR-005` | 401  | Token Bearer inválido                                    |
-| `ERROR-006` | 401  | Appkey estática inválida                                 |
-| `RATE-001`  | 429  | Límite general excedido                                  |
-| `RATE-002`  | 429  | Límite de autenticación excedido                         |
-| `ERROR-001` | 422  | Error de validación del body                             |
+- **`helmet` y `rateLimit`**: Bloquean ataques DOS pasivos con headers *CSP*. El enpoint de creación de tokens soporta menos peticiones simultáneas previniendo *Brute forcing*.
+- **Argon2id Hashings**: Uso de algoritmos RAM-heavy previniendo extracciones eficaces y decaimientos DB pasivos de la información maestra de clientes.
+- **Middlewares Defensivos**: El `validateResult` enruta las excepciones de `express-validator` rechazando *payloads* mutilados inmediatamente antes de procesarlas o hacer logs pesados al controller.
 
 ---
 
 ## Docker
 
-El proyecto incluye un `Dockerfile` multi-stage optimizado:
+El contenedor nativo ha sido optimizado vía *Multi-Stage build* en Alpine para generar un bloque limpio y exento del ambiente `devDependency`:
 
-- **Stage `build`**: Usa `node:20-alpine3.19`, instala dependencias, compila TypeScript.
-- **Stage final**: Usa `node:lts-alpine3.19`, copia solo artefactos de producción, ejecuta con `dumb-init` como usuario `node` (no root).
-- Timezone: `America/Mexico_City`.
+1. `Build Stage`: Transpila
+2. `Final Stage`: Copia puros binarios generados bajo usuario seguro rootless usando *Dumb-init* manejador PID1 previniendo *Zombies*.
 
 ```bash
-# Construir imagen
 docker build -t midd-gateway-api .
-
-# Levantar con docker-compose (requiere red externa mysql_default)
 docker-compose up -d
 ```
-
-> **Nota**: El `docker-compose.yaml` espera una red externa llamada `mysql_default`. Asegúrate de tenerla creada con `docker network create mysql_default` o ajusta el nombre según tu entorno.
-
----
-
-## Base de datos
-
-### Modelo `clients`
-
-| Campo                       | Tipo                  | Descripción                          |
-| --------------------------- | --------------------- | ------------------------------------ |
-| `id`                        | INT AUTO_INCREMENT PK | Identificador interno                |
-| `name`                      | VARCHAR               | Nombre único del cliente             |
-| `client_id`                 | UUID UNIQUE           | Identificador público del cliente    |
-| `secret_hash`               | VARCHAR               | Hash Argon2id del secreto            |
-| `is_active`                 | BOOLEAN               | Estado del cliente (default: `true`) |
-| `created_at` / `updated_at` | DATETIME              | Timestamps manuales                  |
-
-### Modelo `sessions`
-
-| Campo                       | Tipo                  | Descripción                         |
-| --------------------------- | --------------------- | ----------------------------------- |
-| `id`                        | INT AUTO_INCREMENT PK | Identificador de sesión             |
-| `client_id`                 | INT FK → clients.id   | Cliente propietario                 |
-| `expires_at`                | DATETIME              | Expiración del token (now + 5 min)  |
-| `revoked_at`                | DATETIME NULL         | Fecha de revocación (null = activa) |
-| `created_at` / `updated_at` | DATETIME              | Timestamps manuales                 |
-
-Las migraciones crean además **índices** en `client_id` y `revoked_at` para optimizar las consultas de revocación.
-
----
-
-## Buenas prácticas implementadas
-
-- **Arquitectura en capas**: `routes → controllers → models` (con `services` y `repositories` disponibles para lógica más compleja).
-- **Respuestas estandarizadas JSON:API** en todos los endpoints (éxito, mensaje y error).
-- **Variables de entorno validadas** en arranque con Joi; fallo rápido ante configuración incorrecta.
-- **Errores tipados** con `ErrorException` que lleva código, sugerencias y título para respuestas descriptivas.
-- **Tokens de uso único** para verificación, previniendo replay attacks.
-- **Multi-stage Docker** para imágenes de producción ligeras y seguras.
-- **Logger estructurado** con log4js y separación de niveles (INFO, WARN, ERROR, MARK).
-- **Pool de conexiones** configurable vía variables de entorno.
-- **Transacciones Sequelize** para operaciones de escritura con rollback automático.
-- **ESLint + Prettier** configurados para consistencia de código.
-
----
-
-## Roadmap
-
-Basado en el código existente, las siguientes mejoras son candidatas naturales:
-
-- [ ] **Refresh tokens**: Implementar un token de larga duración para renovar el access token sin re-autenticarse.
-- [ ] **Rotación de secretos de cliente**: Endpoint para actualizar el `client_secret` de un cliente existente.
-- [ ] **Endpoint de desactivación de cliente**: Marcar `is_active = false` para deshabilitar un cliente sin eliminarlo.
-- [ ] **Auto-revocación en cadena**: Activar la lógica comentada en `verifyToken` que revoca todas las sesiones del cliente al detectarse un token ya revocado (prevención de token replay en profundidad).
-- [ ] **Paginado en revocación masiva**: Limitar el batch de `revokeOldSessions` para evitar timeouts en tablas grandes.
-- [ ] **Tests de integración**: Extender `src/tests/` con specs para los endpoints OAuth usando Supertest.
-- [ ] **Métricas y health check**: Endpoint `GET /health` que exponga estado de la conexión a BD y uptime.
-- [ ] **Audit log**: Registrar en tabla dedicada los eventos de emisión, verificación y revocación de tokens.
+*(Requiere previamente en el Engine `docker network create mysql_default`)*.
 
 ---
 
 ## Licencia
 
-**MIT** — Ver [LICENSE](https://opensource.org/licenses/MIT)
+**MIT** — Ver detalles en el proyecto o la [MIT License documentation](https://opensource.org/licenses/MIT).
 
-```
-Copyright (c) Ivan Madera
-```
+`Copyright (c) Ivan Madera`
